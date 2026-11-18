@@ -89,6 +89,19 @@ beforeAll(async () => {
   }
   orgA = (await svc(`select public.app_approve_org_application($1,$2,'org-alpha') as id`, [apps.a, U.root]))[0].id;
   orgB = (await svc(`select public.app_approve_org_application($1,$2,'org-beta') as id`, [apps.b, U.root]))[0].id;
+
+  // Insert dummy event and entry records in Org A so composite FK constraints pass in Phase 2 tests
+  await sup(`insert into public.events (id, organization_id, slug, public_code, name, created_by)
+    values ($1, $2, 'e1', 'E1', 'Event 1', $3), ($4, $2, 'e2', 'E2', 'Event 2', $3)`, [E1, orgA, U.alice, E2]);
+
+  const c1 = (await sup(`insert into public.contestants (organization_id, display_name, created_by)
+    values ($1, 'C1', $2) returning id`, [orgA, U.alice]))[0].id;
+  const c2 = (await sup(`insert into public.contestants (organization_id, display_name, created_by)
+    values ($1, 'C2', $2) returning id`, [orgA, U.alice]))[0].id;
+
+  await sup(`insert into public.contestant_entries (id, event_id, organization_id, contestant_id, contestant_number, public_code, registered_by)
+    values ($1, $2, $3, $4, 1, 'C01', $6), ($5, $2, $3, $7, 2, 'C02', $6)`,
+    [ENTRY_X, E1, orgA, c1, ENTRY_Y, U.alice, c2]);
 });
 
 describe("organization application workflow", () => {
