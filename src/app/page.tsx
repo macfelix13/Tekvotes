@@ -1,113 +1,165 @@
 import Link from "next/link";
 import { Navbar } from "@/components/navigation/Navbar";
-import { ArrowRight, CheckCircle2, ShieldCheck, Sparkles, Smartphone, Award, Trophy } from "lucide-react";
+import { HomeSearch } from "@/components/search/HomeSearch";
+import {
+  ArrowRight,
+  Search,
+  Hash,
+  Smartphone,
+  Building2,
+  CheckCircle2,
+  Sparkles,
+  MessageCircle,
+  Trophy,
+  ShieldCheck,
+} from "lucide-react";
 
 export default function HomePage() {
+  const sampleEvents = [
+    {
+      id: "ev-1",
+      slug: "miss-hijab-ghana-2026",
+      title: "Miss Hijab Ghana 3RD EDITION",
+      category: "Awards & Pageant",
+      badgeColor: "bg-[#4B35E0]",
+      organizer: "Model Tv Ghana",
+      image: "https://images.unsplash.com/photo-1567401893414-76b7b1e5a7a5?auto=format&fit=crop&w=600&q=80",
+      totalVotes: "18,420",
+    },
+    {
+      id: "ev-2",
+      slug: "mempeasem-circuit-awards-2026",
+      title: "MEMPEASEM CIRCUIT MYF DINNER AND AWARDS 2026",
+      category: "Awards",
+      badgeColor: "bg-[#0E1030]",
+      organizer: "Mempeasem Circuit MYF",
+      image: "https://images.unsplash.com/photo-1511578314322-379afb476865?auto=format&fit=crop&w=600&q=80",
+      totalVotes: "12,950",
+    },
+    {
+      id: "ev-3",
+      slug: "kids-talent-show-2026",
+      title: "KID'S TALENT SHOW 5th Edition 2026",
+      category: "Talent Show",
+      badgeColor: "bg-[#C77700]",
+      organizer: "Kids Talent Show Network",
+      image: "https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?auto=format&fit=crop&w=600&q=80",
+      totalVotes: "34,110",
+    },
+    {
+      id: "ev-4",
+      slug: "miss-campus-ghana-2026",
+      title: "MISS CAMPUS GHANA 2026 FINALS",
+      category: "Pageant",
+      badgeColor: "bg-[#0F9D6B]",
+      organizer: "Campus Media Group",
+      image: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=600&q=80",
+      totalVotes: "29,480",
+    },
+  ];
+
   return (
     <div className="min-h-screen flex flex-col bg-[#F6F7FC]">
       <Navbar />
 
       <main className="flex-1">
         {/* Hero Section */}
-        <section className="relative overflow-hidden pt-12 pb-20 md:pt-20 md:pb-28">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <section className="relative bg-gradient-to-b from-[#0E1030] to-[#1A1D47] text-white pt-16 pb-24 lg:pt-20 lg:pb-32 overflow-hidden">
+          {/* Subtle background circles */}
+          <div className="absolute inset-0 opacity-10 pointer-events-none">
+            <div className="absolute top-1/2 left-1/4 -translate-y-1/2 w-96 h-96 rounded-full border-2 border-white" />
+            <div className="absolute top-1/2 left-1/4 -translate-y-1/2 w-[500px] h-[500px] rounded-full border border-white" />
+          </div>
+
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
             <div className="grid lg:grid-cols-12 gap-12 items-center">
               <div className="lg:col-span-7 space-y-6 text-center lg:text-left">
-                <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#E8E5FD] text-[#4B35E0] text-xs font-semibold uppercase tracking-wider">
-                  <Sparkles className="w-4 h-4 fill-[#4B35E0]" />
-                  Multi-Tenant E-Voting Platform for Ghana
+                <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/10 text-[#F2A900] text-xs font-semibold uppercase tracking-wider backdrop-blur-xs border border-white/10">
+                  <Sparkles className="w-4 h-4 fill-[#F2A900]" />
+                  Next-Gen Competition & Pageant Voting in Ghana
                 </div>
 
-                <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-[#0E1030] leading-[1.1]">
-                  Empowering <span className="text-[#4B35E0]">Competitions,</span> Pageants & Award Shows
+                <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight leading-[1.15]">
+                  Cast Your Vote for Ghana&apos;s Next <span className="text-[#F2A900]">Champions</span>
                 </h1>
 
-                <p className="text-lg sm:text-xl text-[#5B5F85] max-w-2xl mx-auto lg:mx-0 leading-relaxed">
-                  TekVotes provides independent organizations and event creators with bank-grade voting engines, instant Mobile Money checkout, and transparent leaderboards.
+                <p className="text-base sm:text-lg text-white/80 max-w-2xl mx-auto lg:mx-0 leading-relaxed font-normal">
+                  Instant, transparent and fraud-free digital voting for awards, pageants, and talent competitions. Pay securely with MTN MoMo, Telecel Cash, and AT Money.
                 </p>
 
                 <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4 pt-2">
                   <Link
                     href="/competitions"
-                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-[#4B35E0] text-white font-semibold text-base hover:bg-[#3B28B8] shadow-md shadow-[#4B35E0]/20 transition-all"
+                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-7 py-4 rounded-xl bg-[#4B35E0] text-white font-semibold text-base hover:bg-[#3B28B8] shadow-lg shadow-[#4B35E0]/30 transition-all"
                   >
-                    Explore Competitions
+                    Browse Active Competitions
                     <ArrowRight className="w-4 h-4" />
                   </Link>
 
                   <Link
                     href="/apply"
-                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl border border-[#D9DBEA] bg-white text-[#0E1030] font-semibold text-base hover:bg-[#F6F7FC] transition-all"
+                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-7 py-4 rounded-xl border border-white/20 bg-white/5 text-white font-semibold text-base hover:bg-white/10 transition-all backdrop-blur-xs"
                   >
-                    Apply to Host an Event
+                    Host an Event
                   </Link>
-                </div>
-
-                <div className="pt-6 flex flex-wrap items-center justify-center lg:justify-start gap-6 text-xs font-medium text-[#5B5F85]">
-                  <span className="flex items-center gap-1.5">
-                    <CheckCircle2 className="w-4 h-4 text-[#0F9D6B]" /> MTN MoMo, Telecel & AT Cash
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <CheckCircle2 className="w-4 h-4 text-[#0F9D6B]" /> Free Event Creation
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <CheckCircle2 className="w-4 h-4 text-[#0F9D6B]" /> Tamper-Proof Audit Ledger
-                  </span>
                 </div>
               </div>
 
-              {/* Visual Card / Highlights */}
+              {/* Right Hero Card / Live Pageant Preview */}
               <div className="lg:col-span-5 relative">
-                <div className="relative mx-auto max-w-md rounded-2xl bg-white p-6 shadow-xl border border-[#D9DBEA]">
+                <div className="relative mx-auto max-w-md rounded-2xl bg-white text-[#0E1030] p-6 shadow-2xl border border-white/20">
                   <div className="flex items-center justify-between pb-4 border-b border-[#D9DBEA]">
                     <div>
-                      <span className="text-xs font-semibold uppercase text-[#5B5F85]">Featured Pageant</span>
-                      <h3 className="font-heading font-bold text-lg text-[#0E1030]">Miss Campus Ghana 2026</h3>
+                      <span className="text-xs font-bold uppercase tracking-wider text-[#4B35E0]">Live Competition</span>
+                      <h3 className="font-heading font-extrabold text-lg text-[#0E1030]">Miss Hijab Ghana 2026</h3>
                     </div>
-                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-[#FDF3D6] text-[#C77700]">
-                      <Trophy className="w-3.5 h-3.5 text-[#F2A900] fill-[#F2A900]" /> Live
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-[#E6F8F0] text-[#0F9D6B]">
+                      <span className="w-2 h-2 rounded-full bg-[#0F9D6B] animate-pulse" />
+                      Voting Open
                     </span>
                   </div>
 
-                  <div className="mt-5 space-y-4">
-                    <div className="flex items-center justify-between p-3 rounded-xl bg-[#F6F7FC] border border-[#D9DBEA]/50">
+                  <div className="mt-5 space-y-3">
+                    <div className="flex items-center justify-between p-3.5 rounded-xl bg-[#F6F7FC] border border-[#D9DBEA]/70">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-[#4B35E0] text-white flex items-center justify-center font-bold text-sm">
+                        <div className="w-10 h-10 rounded-full bg-[#4B35E0] text-white flex items-center justify-center font-bold text-sm shadow-xs">
                           01
                         </div>
                         <div>
-                          <p className="font-semibold text-sm text-[#0E1030]">Naa Mensah</p>
-                          <p className="text-xs text-[#5B5F85]">University of Ghana</p>
+                          <p className="font-semibold text-sm text-[#0E1030]">Fatima Abubakar</p>
+                          <p className="text-xs text-[#5B5F85]">Code: <span className="font-mono font-bold text-[#4B35E0]">FA01</span></p>
                         </div>
                       </div>
                       <div className="text-right">
-                        <span className="font-heading font-bold text-[#4B35E0]">4,820</span>
+                        <span className="font-heading font-extrabold text-[#4B35E0] text-base">6,840</span>
                         <p className="text-[11px] text-[#5B5F85]">votes</p>
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between p-3 rounded-xl bg-[#F6F7FC] border border-[#D9DBEA]/50">
+                    <div className="flex items-center justify-between p-3.5 rounded-xl bg-[#F6F7FC] border border-[#D9DBEA]/70">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-[#5B5F85] text-white flex items-center justify-center font-bold text-sm">
+                        <div className="w-10 h-10 rounded-full bg-[#0E1030] text-white flex items-center justify-center font-bold text-sm shadow-xs">
                           02
                         </div>
                         <div>
-                          <p className="font-semibold text-sm text-[#0E1030]">Akosua Appiah</p>
-                          <p className="text-xs text-[#5B5F85]">KNUST</p>
+                          <p className="font-semibold text-sm text-[#0E1030]">Mariam Zakaria</p>
+                          <p className="text-xs text-[#5B5F85]">Code: <span className="font-mono font-bold text-[#0E1030]">MZ04</span></p>
                         </div>
                       </div>
                       <div className="text-right">
-                        <span className="font-heading font-bold text-[#0E1030]">3,910</span>
+                        <span className="font-heading font-extrabold text-[#0E1030] text-base">5,910</span>
                         <p className="text-[11px] text-[#5B5F85]">votes</p>
                       </div>
                     </div>
                   </div>
 
-                  <div className="mt-6 pt-4 border-t border-[#D9DBEA] flex items-center justify-between text-xs text-[#5B5F85]">
-                    <span>Official verified counts</span>
-                    <span className="font-semibold text-[#0F9D6B] flex items-center gap-1">
-                      <ShieldCheck className="w-3.5 h-3.5" /> Server Verified
+                  <div className="mt-5 pt-4 border-t border-[#D9DBEA] flex items-center justify-between text-xs text-[#5B5F85]">
+                    <span className="flex items-center gap-1 font-medium">
+                      <ShieldCheck className="w-4 h-4 text-[#0F9D6B]" /> Bank-grade Audit Ledger
                     </span>
+                    <Link href="/competitions" className="font-semibold text-[#4B35E0] hover:underline">
+                      View all contestants →
+                    </Link>
                   </div>
                 </div>
               </div>
@@ -115,59 +167,267 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* 3-Step Process (Voter UX Reference) */}
-        <section className="py-16 bg-white border-y border-[#D9DBEA]">
+        {/* Search Bar Overlay */}
+        <HomeSearch />
+
+        {/* Voting Process: How to Vote for a Contestant (Screenshots 3 reference) */}
+        <section className="py-20 bg-white">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="text-center max-w-2xl mx-auto mb-12">
-              <span className="text-xs font-bold uppercase tracking-wider text-[#4B35E0]">How Voting Works</span>
-              <h2 className="text-3xl font-extrabold text-[#0E1030] mt-1">Simple, Secure & Transparent</h2>
+            <div className="text-center max-w-2xl mx-auto mb-16">
+              <span className="text-xs font-bold uppercase tracking-wider text-[#4B35E0]">Voting Process</span>
+              <h2 className="text-3xl sm:text-4xl font-extrabold text-[#0E1030] mt-1.5">
+                How to Vote for a Contestant
+              </h2>
+              <p className="text-base text-[#5B5F85] mt-2">
+                Voting takes less than 30 seconds with zero registration required for voters.
+              </p>
             </div>
 
             <div className="grid md:grid-cols-3 gap-8">
-              <div className="p-6 rounded-2xl bg-[#F6F7FC] border border-[#D9DBEA] text-center space-y-3">
-                <div className="w-12 h-12 rounded-xl bg-[#4B35E0] text-white flex items-center justify-center font-heading font-bold text-lg mx-auto shadow-sm">
-                  1
+              {/* Step 01 */}
+              <div className="relative p-8 rounded-2xl bg-[#F6F7FC] border border-[#D9DBEA] hover:border-[#4B35E0]/40 transition-all hover:shadow-lg group">
+                <span className="absolute top-6 right-6 font-heading font-black text-4xl text-[#D9DBEA] group-hover:text-[#4B35E0]/20 transition-colors">
+                  01
+                </span>
+                <div className="w-14 h-14 rounded-2xl bg-[#4B35E0] text-white flex items-center justify-center mb-6 shadow-md shadow-[#4B35E0]/20">
+                  <Search className="w-7 h-7" />
                 </div>
-                <h3 className="font-heading font-bold text-lg text-[#0E1030]">Find Your Contestant</h3>
-                <p className="text-sm text-[#5B5F85]">
-                  Search by contestant code, name, or scan their unique QR code directly on flyers and social media.
+                <h3 className="font-heading font-bold text-xl text-[#0E1030] mb-2.5">
+                  Find your contestant
+                </h3>
+                <p className="text-sm text-[#5B5F85] leading-relaxed">
+                  Search for your contestant using their short code (e.g. <span className="font-mono font-semibold text-[#0E1030]">AS01</span>) or name, or browse directly through the competition categories.
                 </p>
               </div>
 
-              <div className="p-6 rounded-2xl bg-[#F6F7FC] border border-[#D9DBEA] text-center space-y-3">
-                <div className="w-12 h-12 rounded-xl bg-[#0E1030] text-white flex items-center justify-center font-heading font-bold text-lg mx-auto shadow-sm">
-                  2
+              {/* Step 02 */}
+              <div className="relative p-8 rounded-2xl bg-[#F6F7FC] border border-[#D9DBEA] hover:border-[#4B35E0]/40 transition-all hover:shadow-lg group">
+                <span className="absolute top-6 right-6 font-heading font-black text-4xl text-[#D9DBEA] group-hover:text-[#4B35E0]/20 transition-colors">
+                  02
+                </span>
+                <div className="w-14 h-14 rounded-2xl bg-[#0E1030] text-white flex items-center justify-center mb-6 shadow-md shadow-[#0E1030]/20">
+                  <Hash className="w-7 h-7" />
                 </div>
-                <h3 className="font-heading font-bold text-lg text-[#0E1030]">Choose Vote Quantity</h3>
-                <p className="text-sm text-[#5B5F85]">
-                  Select a fixed vote bundle or enter any custom whole-vote amount in Ghana Cedis (GHS).
+                <h3 className="font-heading font-bold text-xl text-[#0E1030] mb-2.5">
+                  Enter number of votes
+                </h3>
+                <p className="text-sm text-[#5B5F85] leading-relaxed">
+                  Your vote counts. Select convenient bundles or enter any custom whole-vote amount you like to boost your favourite contestant.
                 </p>
               </div>
 
-              <div className="p-6 rounded-2xl bg-[#F6F7FC] border border-[#D9DBEA] text-center space-y-3">
-                <div className="w-12 h-12 rounded-xl bg-[#F2A900] text-[#0E1030] flex items-center justify-center font-heading font-bold text-lg mx-auto shadow-sm">
-                  3
+              {/* Step 03 */}
+              <div className="relative p-8 rounded-2xl bg-[#F6F7FC] border border-[#D9DBEA] hover:border-[#4B35E0]/40 transition-all hover:shadow-lg group">
+                <span className="absolute top-6 right-6 font-heading font-black text-4xl text-[#D9DBEA] group-hover:text-[#4B35E0]/20 transition-colors">
+                  03
+                </span>
+                <div className="w-14 h-14 rounded-2xl bg-[#F2A900] text-[#0E1030] flex items-center justify-center mb-6 shadow-md shadow-[#F2A900]/20">
+                  <Smartphone className="w-7 h-7" />
                 </div>
-                <h3 className="font-heading font-bold text-lg text-[#0E1030]">Approve on Your Phone</h3>
-                <p className="text-sm text-[#5B5F85]">
-                  Receive an instant Mobile Money prompt on your phone. Votes credit in real-time with digital receipt.
+                <h3 className="font-heading font-bold text-xl text-[#0E1030] mb-2.5">
+                  Follow the prompts
+                </h3>
+                <p className="text-sm text-[#5B5F85] leading-relaxed">
+                  Choose your preferred payment option (MTN Mobile Money, Telecel Cash, AT Money, or Card) and approve the payment prompt on your phone.
                 </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Active and Ongoing Voting (Screenshots 4 reference) */}
+        <section className="py-20 bg-[#F6F7FC] border-t border-[#D9DBEA]">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-12">
+              <div>
+                <span className="text-xs font-bold uppercase tracking-wider text-[#4B35E0]">Events</span>
+                <h2 className="text-3xl sm:text-4xl font-extrabold text-[#0E1030] mt-1">
+                  Active and Ongoing Voting
+                </h2>
+                <p className="text-sm text-[#5B5F85] mt-1.5">
+                  Discover verified competitions currently accepting live public votes across Ghana.
+                </p>
+              </div>
+
+              <Link
+                href="/competitions"
+                className="inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-[#4B35E0] text-white font-semibold text-sm hover:bg-[#3B28B8] transition-all self-start sm:self-auto shadow-sm"
+              >
+                Browse All
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+            </div>
+
+            {/* Events Grid */}
+            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              {sampleEvents.map((event) => (
+                <div
+                  key={event.id}
+                  className="bg-white rounded-2xl overflow-hidden border border-[#D9DBEA] shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col group"
+                >
+                  {/* Poster Image */}
+                  <div className="relative aspect-[4/3] w-full bg-[#0E1030] overflow-hidden">
+                    <img
+                      src={event.image}
+                      alt={event.title}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+                    <span
+                      className={`absolute top-3 left-3 text-[11px] font-bold text-white px-2.5 py-1 rounded-full ${event.badgeColor} shadow-xs`}
+                    >
+                      {event.category}
+                    </span>
+                  </div>
+
+                  {/* Body */}
+                  <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
+                    <div>
+                      <h3 className="font-heading font-bold text-base text-[#0E1030] line-clamp-2 leading-snug group-hover:text-[#4B35E0] transition-colors">
+                        {event.title}
+                      </h3>
+
+                      <div className="mt-2.5 flex items-center gap-1.5 text-xs text-[#5B5F85]">
+                        <Building2 className="w-3.5 h-3.5 text-[#5B5F85]" />
+                        <span className="truncate">{event.organizer}</span>
+                      </div>
+                    </div>
+
+                    <Link
+                      href={`/competitions/${event.slug}`}
+                      className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#4B35E0] text-white font-semibold text-sm hover:bg-[#3B28B8] transition-all shadow-xs"
+                    >
+                      Vote Now
+                      <ArrowRight className="w-4 h-4" />
+                    </Link>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* Organiser Callout & "About TekVotes" (Screenshots 1 & 2 reference) */}
+        <section id="about" className="py-20 bg-white border-t border-[#D9DBEA]">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="grid lg:grid-cols-12 gap-12 items-center">
+              {/* Left Column: Organiser Headline & Actions */}
+              <div className="lg:col-span-7 space-y-6">
+                <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#E8E5FD] text-[#4B35E0] text-xs font-semibold uppercase tracking-wider">
+                  <Trophy className="w-4 h-4 text-[#4B35E0]" />
+                  For Event Organisers & Creators
+                </div>
+
+                <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-[#0E1030] leading-[1.2]">
+                  Join our platform as an organiser and create your events for voting and ticketing
+                </h2>
+
+                <p className="text-base sm:text-lg text-[#5B5F85] leading-relaxed">
+                  All you need to do is to create an account and verify your email. That&apos;s it. Your account is ready to be used with comprehensive category setups, custom vote pricing, and real-time bank settlements.
+                </p>
+
+                <div className="flex flex-wrap items-center gap-4 pt-2">
+                  <Link
+                    href="/apply"
+                    className="inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-xl bg-[#4B35E0] text-white font-semibold text-base hover:bg-[#3B28B8] shadow-md shadow-[#4B35E0]/20 transition-all"
+                  >
+                    Join Now!!
+                    <ArrowRight className="w-4 h-4" />
+                  </Link>
+
+                  <a
+                    href="https://wa.me/233240000000?text=Hello%20TekVotes%2C%20I%20would%20like%20to%20host%20an%20event."
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-xl bg-[#25D366] text-white font-semibold text-base hover:bg-[#20BE5B] shadow-md shadow-[#25D366]/20 transition-all"
+                  >
+                    <MessageCircle className="w-5 h-5 fill-white" />
+                    <span>WhatsApp Us</span>
+                  </a>
+                </div>
+              </div>
+
+              {/* Right Column: "About TekVotes" Card (Screenshot 1 & 2 reference) */}
+              <div className="lg:col-span-5">
+                <div className="rounded-3xl bg-gradient-to-br from-[#4B35E0] to-[#2B1B9A] text-white p-8 sm:p-10 shadow-2xl relative overflow-hidden">
+                  <div className="relative z-10 space-y-6">
+                    <span className="text-xs font-bold uppercase tracking-wider text-white/80">
+                      About TekVotes
+                    </span>
+
+                    <h3 className="text-2xl sm:text-3xl font-extrabold text-white leading-tight">
+                      It&apos;s an e-voting platform where Organisers create and run their award & pageant events with ease
+                    </h3>
+
+                    <p className="text-sm sm:text-base text-white/90 leading-relaxed">
+                      All they have to do is create an account and verify their email address, and they are ready to start using our platform.
+                    </p>
+
+                    <div className="pt-4 border-t border-white/20 space-y-3 text-xs sm:text-sm text-white/80">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-[#F2A900]" />
+                        <span>Centralized Ghanaian Mobile Money settlements</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-[#F2A900]" />
+                        <span>Instant automated SMS and digital vote receipts</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-[#F2A900]" />
+                        <span>Hybrid public vote & judge adjudication engine</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         </section>
       </main>
 
-      <footer className="bg-[#0E1030] text-white py-10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <span className="font-heading font-bold text-lg text-white">TekVotes</span>
-            <span className="text-xs text-[#5B5F85]">© 2026 All rights reserved.</span>
+      {/* Footer */}
+      <footer className="bg-[#0E1030] text-white py-12 border-t border-white/10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-8">
+            <div className="col-span-2 md:col-span-1 space-y-3">
+              <span className="font-heading font-extrabold text-2xl text-white">TekVotes</span>
+              <p className="text-xs text-[#5B5F85] leading-relaxed">
+                Ghana&apos;s premier multi-tenant digital competition management and voting infrastructure.
+              </p>
+            </div>
+            <div>
+              <h4 className="text-xs font-bold uppercase tracking-wider text-white/60 mb-3">Voters</h4>
+              <ul className="space-y-2 text-xs text-white/80">
+                <li><Link href="/competitions" className="hover:text-white">Active Competitions</Link></li>
+                <li><Link href="/#how-it-works" className="hover:text-white">How to Vote</Link></li>
+                <li><Link href="/verify" className="hover:text-white">Verify Receipt</Link></li>
+              </ul>
+            </div>
+            <div>
+              <h4 className="text-xs font-bold uppercase tracking-wider text-white/60 mb-3">Organisers</h4>
+              <ul className="space-y-2 text-xs text-white/80">
+                <li><Link href="/apply" className="hover:text-white">Apply as Organiser</Link></li>
+                <li><Link href="/pricing" className="hover:text-white">Fee Structure</Link></li>
+                <li><Link href="/auth/login" className="hover:text-white">Organiser Login</Link></li>
+              </ul>
+            </div>
+            <div>
+              <h4 className="text-xs font-bold uppercase tracking-wider text-white/60 mb-3">Support</h4>
+              <ul className="space-y-2 text-xs text-white/80">
+                <li>
+                  <a href="https://wa.me/233240000000" target="_blank" rel="noopener noreferrer" className="text-[#25D366] hover:underline flex items-center gap-1">
+                    <MessageCircle className="w-3.5 h-3.5" /> WhatsApp Helpdesk
+                  </a>
+                </li>
+                <li><Link href="/contact" className="hover:text-white">Contact Us</Link></li>
+                <li><Link href="/terms" className="hover:text-white">Terms & Privacy</Link></li>
+              </ul>
+            </div>
           </div>
-          <div className="flex items-center gap-6 text-xs text-white/70">
-            <Link href="/terms" className="hover:text-white">Terms of Service</Link>
-            <Link href="/privacy" className="hover:text-white">Privacy Policy</Link>
-            <Link href="/apply" className="hover:text-[#F2A900]">Organiser Portal</Link>
+
+          <div className="pt-8 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-[#5B5F85]">
+            <p>© 2026 TekVotes Ghana Ltd. All rights reserved.</p>
+            <p>Built with tamper-proof financial audit ledgers and Supabase RLS.</p>
           </div>
         </div>
       </footer>
