@@ -11,6 +11,8 @@ export function generateStaticParams() {
     { slug: "mempeasem-circuit-awards-2026" },
     { slug: "kids-talent-show-2026" },
     { slug: "miss-campus-ghana-2026" },
+    { slug: "ghana-gospel-industry-awards" },
+    { slug: "accra-varsity-dance-championship" },
   ];
 }
 

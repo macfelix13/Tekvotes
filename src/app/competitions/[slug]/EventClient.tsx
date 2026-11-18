@@ -1,92 +1,129 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { Navbar } from "@/components/navigation/Navbar";
 import { VotingDrawer, Contestant } from "@/components/voting/VotingDrawer";
 import {
   Building2,
   Calendar,
-  Share2,
   Trophy,
   Search,
-  CheckCircle2,
   Flame,
   BarChart3,
   Users,
+  Lock,
 } from "lucide-react";
 
 interface EventClientProps {
   slug: string;
 }
 
-export function EventClient({ slug }: EventClientProps) {
-  const [selectedContestant, setSelectedContestant] = useState<Contestant | null>(null);
-  const [activeTab, setActiveTab] = useState<"contestants" | "leaderboard">("contestants");
-  const [searchTerm, setSearchTerm] = useState("");
+interface EventConfig {
+  title: string;
+  organizer: string;
+  category: string;
+  closesAt: string;
+  unitPriceGhs: number;
+  votingOpen: boolean;
+  banner: string;
+  description: string;
+  contestants: Contestant[];
+}
 
-  const eventData = {
+const EVENT_CATALOG: Record<string, EventConfig> = {
+  "miss-hijab-ghana-2026": {
     title: "Miss Hijab Ghana 3RD EDITION",
-    slug,
     organizer: "Model Tv Ghana",
     category: "Pageant & Awards",
     closesAt: "Dec 21, 2026",
     unitPriceGhs: 1.0,
+    votingOpen: true,
     banner: "https://images.unsplash.com/photo-1567401893414-76b7b1e5a7a5?auto=format&fit=crop&w=1200&q=80",
     description:
       "Celebrating beauty, intellect, and Islamic moral values. Public voting accounts for 50% of the overall final score, alongside our esteemed panel of grand jury adjudicators.",
-  };
+    contestants: [
+      { id: "c-1", name: "Fatima Abubakar", code: "FA01", photo: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=600&q=80", categoryName: "Queen Category", votes: 6840 },
+      { id: "c-2", name: "Mariam Zakaria", code: "MZ04", photo: "https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=600&q=80", categoryName: "Queen Category", votes: 5910 },
+      { id: "c-3", name: "Amina Sulemana", code: "AS07", photo: "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=600&q=80", categoryName: "Queen Category", votes: 4320 },
+      { id: "c-4", name: "Zeinab Haruna", code: "ZH02", photo: "https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?auto=format&fit=crop&w=600&q=80", categoryName: "Queen Category", votes: 3890 },
+      { id: "c-5", name: "Rukaya Mohammed", code: "RM09", photo: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=600&q=80", categoryName: "Queen Category", votes: 3100 },
+      { id: "c-6", name: "Hafsa Issah", code: "HI12", photo: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=600&q=80", categoryName: "Queen Category", votes: 2750 },
+    ],
+  },
+  "mempeasem-circuit-awards-2026": {
+    title: "MEMPEASEM CIRCUIT MYF DINNER AND AWARDS 2026",
+    organizer: "Mempeasem Circuit MYF",
+    category: "Awards",
+    closesAt: "Dec 21, 2026",
+    unitPriceGhs: 1.0,
+    votingOpen: true,
+    banner: "https://images.unsplash.com/photo-1511578314322-379afb476865?auto=format&fit=crop&w=1200&q=80",
+    description:
+      "Annual youth fellowship dinner and excellence awards night honoring outstanding youth leaders, choir vocalists, and community trailblazers.",
+    contestants: [
+      { id: "m-1", name: "Emmanuel Ofori", code: "MYF01", photo: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=600&q=80", categoryName: "Youth Leader of the Year", votes: 4210 },
+      { id: "m-2", name: "Grace Asante", code: "MYF02", photo: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=600&q=80", categoryName: "Youth Leader of the Year", votes: 3980 },
+      { id: "m-3", name: "Daniel Mensah", code: "MYF03", photo: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=600&q=80", categoryName: "Best Vocalist", votes: 2650 },
+      { id: "m-4", name: "Priscilla Owusu", code: "MYF04", photo: "https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?auto=format&fit=crop&w=600&q=80", categoryName: "Best Vocalist", votes: 2110 },
+    ],
+  },
+  "kids-talent-show-2026": {
+    title: "KID'S TALENT SHOW 5th Edition 2026",
+    organizer: "Kids Talent Show Network",
+    category: "Talent Show",
+    closesAt: "Jan 15, 2027",
+    unitPriceGhs: 2.0,
+    votingOpen: true,
+    banner: "https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?auto=format&fit=crop&w=1200&q=80",
+    description:
+      "Showcasing Ghana's brightest young performers in dance, spoken word, live instrumentation, and acrobatics.",
+    contestants: [
+      { id: "k-1", name: "Kwesi Junior (The Drummer)", code: "KTS01", photo: "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=600&q=80", categoryName: "Grand Talent", votes: 11400 },
+      { id: "k-2", name: "Nana Ama Spoken Word", code: "KTS02", photo: "https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?auto=format&fit=crop&w=600&q=80", categoryName: "Grand Talent", votes: 9850 },
+      { id: "k-3", name: " Golden Stars Dance Crew", code: "KTS03", photo: "https://images.unsplash.com/photo-1547153760-18fc86324498?auto=format&fit=crop&w=600&q=80", categoryName: "Grand Talent", votes: 7620 },
+      { id: "k-4", name: "Little Maestro Kojo", code: "KTS04", photo: "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&w=600&q=80", categoryName: "Grand Talent", votes: 5240 },
+    ],
+  },
+  "miss-campus-ghana-2026": {
+    title: "MISS CAMPUS GHANA 2026 FINALS",
+    organizer: "Campus Media Group",
+    category: "Pageant",
+    closesAt: "Dec 30, 2026",
+    unitPriceGhs: 1.5,
+    votingOpen: true,
+    banner: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=1200&q=80",
+    description:
+      "Empowering female university leaders across Ghana's public and private tertiary institutions.",
+    contestants: [
+      { id: "mc-1", name: "Naa Mensah (UG Legon)", code: "MCG01", photo: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=600&q=80", categoryName: "Campus Queen", votes: 9420 },
+      { id: "mc-2", name: "Akosua Appiah (KNUST)", code: "MCG02", photo: "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=600&q=80", categoryName: "Campus Queen", votes: 8710 },
+      { id: "mc-3", name: "Esi Baidoo (UCC)", code: "MCG03", photo: "https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=600&q=80", categoryName: "Campus Queen", votes: 6150 },
+      { id: "mc-4", name: "Adwoa Serwaa (UPSA)", code: "MCG04", photo: "https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?auto=format&fit=crop&w=600&q=80", categoryName: "Campus Queen", votes: 5200 },
+    ],
+  },
+  "ghana-gospel-industry-awards": {
+    title: "Ghana National Gospel Music Honors 2026",
+    organizer: "Gospel Music Guild",
+    category: "Awards",
+    closesAt: "Starts Dec 01, 2026",
+    unitPriceGhs: 1.0,
+    votingOpen: false,
+    banner: "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&w=1200&q=80",
+    description:
+      "Public Preview (Rule OD-14 / ND-07): Nominees are published for public discovery. Voting checkout unlocks automatically once Super Admin voting approval takes effect.",
+    contestants: [
+      { id: "gg-1", name: "Minister Joe Praize GH", code: "GGM01", photo: "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=600&q=80", categoryName: "Artiste of the Year", votes: 0 },
+      { id: "gg-2", name: "Sister Empress Comfort", code: "GGM02", photo: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=600&q=80", categoryName: "Artiste of the Year", votes: 0 },
+    ],
+  },
+};
 
-  const [contestants, setContestants] = useState<Contestant[]>([
-    {
-      id: "c-1",
-      name: "Fatima Abubakar",
-      code: "FA01",
-      photo: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=600&q=80",
-      categoryName: "Queen Category",
-      votes: 6840,
-    },
-    {
-      id: "c-2",
-      name: "Mariam Zakaria",
-      code: "MZ04",
-      photo: "https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=600&q=80",
-      categoryName: "Queen Category",
-      votes: 5910,
-    },
-    {
-      id: "c-3",
-      name: "Amina Sulemana",
-      code: "AS07",
-      photo: "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=600&q=80",
-      categoryName: "Queen Category",
-      votes: 4320,
-    },
-    {
-      id: "c-4",
-      name: "Zeinab Haruna",
-      code: "ZH02",
-      photo: "https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?auto=format&fit=crop&w=600&q=80",
-      categoryName: "Queen Category",
-      votes: 3890,
-    },
-    {
-      id: "c-5",
-      name: "Rukaya Mohammed",
-      code: "RM09",
-      photo: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=600&q=80",
-      categoryName: "Queen Category",
-      votes: 3100,
-    },
-    {
-      id: "c-6",
-      name: "Hafsa Issah",
-      code: "HI12",
-      photo: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=600&q=80",
-      categoryName: "Queen Category",
-      votes: 2750,
-    },
-  ]);
+export function EventClient({ slug }: EventClientProps) {
+  const initialConfig = EVENT_CATALOG[slug] || EVENT_CATALOG["miss-hijab-ghana-2026"];
+  const [selectedContestant, setSelectedContestant] = useState<Contestant | null>(null);
+  const [activeTab, setActiveTab] = useState<"contestants" | "leaderboard">("contestants");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [contestants, setContestants] = useState<Contestant[]>(initialConfig.contestants);
 
   const filteredContestants = contestants.filter(
     (c) =>
@@ -96,7 +133,7 @@ export function EventClient({ slug }: EventClientProps) {
 
   const totalEventVotes = contestants.reduce((acc, curr) => acc + curr.votes, 0);
 
-  const handleVoteSuccess = (orderRef: string, voteCount: number) => {
+  const handleVoteSuccess = (_orderRef: string, voteCount: number) => {
     if (selectedContestant) {
       setContestants((prev) =>
         prev.map((c) => (c.id === selectedContestant.id ? { ...c, votes: c.votes + voteCount } : c))
@@ -112,7 +149,7 @@ export function EventClient({ slug }: EventClientProps) {
         {/* Event Banner & Header */}
         <div className="relative bg-[#0E1030] text-white">
           <div className="absolute inset-0 opacity-25">
-            <img src={eventData.banner} alt={eventData.title} className="w-full h-full object-cover" />
+            <img src={initialConfig.banner} alt={initialConfig.title} className="w-full h-full object-cover" />
             <div className="absolute inset-0 bg-gradient-to-t from-[#0E1030] via-[#0E1030]/80 to-transparent" />
           </div>
 
@@ -120,31 +157,38 @@ export function EventClient({ slug }: EventClientProps) {
             <div className="max-w-3xl space-y-4">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="px-3 py-1 rounded-full bg-[#4B35E0] text-white text-xs font-bold">
-                  {eventData.category}
+                  {initialConfig.category}
                 </span>
-                <span className="px-3 py-1 rounded-full bg-[#E6F8F0] text-[#0F9D6B] text-xs font-bold flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-[#0F9D6B] animate-pulse" />
-                  Voting Active
-                </span>
+                {initialConfig.votingOpen ? (
+                  <span className="px-3 py-1 rounded-full bg-[#E6F8F0] text-[#0F9D6B] text-xs font-bold flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-[#0F9D6B] animate-pulse" />
+                    Voting Active
+                  </span>
+                ) : (
+                  <span className="px-3 py-1 rounded-full bg-[#FDF3D6] text-[#C77700] text-xs font-bold flex items-center gap-1.5">
+                    <Lock className="w-3.5 h-3.5" />
+                    Coming Soon Preview (OD-14)
+                  </span>
+                )}
               </div>
 
               <h1 className="font-heading font-extrabold text-3xl sm:text-4xl lg:text-5xl text-white leading-tight">
-                {eventData.title}
+                {initialConfig.title}
               </h1>
 
               <p className="text-white/80 text-sm sm:text-base leading-relaxed">
-                {eventData.description}
+                {initialConfig.description}
               </p>
 
               <div className="flex flex-wrap items-center gap-6 pt-2 text-xs sm:text-sm text-white/70">
                 <span className="flex items-center gap-1.5">
-                  <Building2 className="w-4 h-4 text-[#F2A900]" /> {eventData.organizer}
+                  <Building2 className="w-4 h-4 text-[#F2A900]" /> {initialConfig.organizer}
                 </span>
                 <span className="flex items-center gap-1.5">
-                  <Calendar className="w-4 h-4 text-[#F2A900]" /> Closes: {eventData.closesAt}
+                  <Calendar className="w-4 h-4 text-[#F2A900]" /> {initialConfig.closesAt}
                 </span>
                 <span className="flex items-center gap-1.5">
-                  <Trophy className="w-4 h-4 text-[#F2A900]" /> GHS {eventData.unitPriceGhs.toFixed(2)} / vote
+                  <Trophy className="w-4 h-4 text-[#F2A900]" /> GHS {initialConfig.unitPriceGhs.toFixed(2)} / vote
                 </span>
               </div>
             </div>
@@ -159,7 +203,7 @@ export function EventClient({ slug }: EventClientProps) {
               <button
                 type="button"
                 onClick={() => setActiveTab("contestants")}
-                className={`flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold transition-all ${
+                className={`flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                   activeTab === "contestants"
                     ? "bg-[#4B35E0] text-white shadow-sm"
                     : "bg-[#F6F7FC] text-[#5B5F85] hover:text-[#0E1030]"
@@ -172,7 +216,7 @@ export function EventClient({ slug }: EventClientProps) {
               <button
                 type="button"
                 onClick={() => setActiveTab("leaderboard")}
-                className={`flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold transition-all ${
+                className={`flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                   activeTab === "leaderboard"
                     ? "bg-[#4B35E0] text-white shadow-sm"
                     : "bg-[#F6F7FC] text-[#5B5F85] hover:text-[#0E1030]"
@@ -234,14 +278,21 @@ export function EventClient({ slug }: EventClientProps) {
                       </span>
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={() => setSelectedContestant(c)}
-                      className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#4B35E0] text-white font-semibold text-xs hover:bg-[#3B28B8] shadow-sm transition-all cursor-pointer"
-                    >
-                      <Flame className="w-3.5 h-3.5 fill-[#F2A900] text-[#F2A900]" />
-                      <span>Vote Now</span>
-                    </button>
+                    {initialConfig.votingOpen ? (
+                      <button
+                        type="button"
+                        onClick={() => setSelectedContestant(c)}
+                        className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#4B35E0] text-white font-semibold text-xs hover:bg-[#3B28B8] shadow-sm transition-all cursor-pointer"
+                      >
+                        <Flame className="w-3.5 h-3.5 fill-[#F2A900] text-[#F2A900]" />
+                        <span>Vote Now</span>
+                      </button>
+                    ) : (
+                      <div className="w-full inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-[#F6F7FC] border border-[#D9DBEA] text-[#5B5F85] font-semibold text-xs">
+                        <Lock className="w-3.5 h-3.5" />
+                        <span>Voting Locked (Coming Soon)</span>
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
@@ -336,7 +387,8 @@ export function EventClient({ slug }: EventClientProps) {
       {selectedContestant && (
         <VotingDrawer
           contestant={selectedContestant}
-          unitPriceGhs={eventData.unitPriceGhs}
+          eventName={initialConfig.title}
+          unitPriceGhs={initialConfig.unitPriceGhs}
           onClose={() => setSelectedContestant(null)}
           onSuccess={handleVoteSuccess}
         />

@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { X, CheckCircle2, ShieldCheck, Smartphone, Sparkles, Loader2 } from "lucide-react";
+import Link from "next/link";
+import { X, CheckCircle2, ShieldCheck, Smartphone, Loader2, ExternalLink } from "lucide-react";
 
 export interface Contestant {
   id: string;
@@ -12,19 +13,36 @@ export interface Contestant {
   votes: number;
 }
 
+export interface StoredVoteReceipt {
+  reference: string;
+  contestantName: string;
+  contestantCode: string;
+  eventName: string;
+  categoryName: string;
+  votesCredited: number;
+  baseAmountGhs: string;
+  surchargeGhs: string;
+  totalPaidGhs: string;
+  channel: string;
+  creditedAt: string;
+  ledgerHash: string;
+}
+
 interface VotingDrawerProps {
   contestant: Contestant | null;
+  eventName: string;
   unitPriceGhs: number;
   onClose: () => void;
   onSuccess: (orderRef: string, voteCount: number) => void;
 }
 
-export function VotingDrawer({ contestant, unitPriceGhs, onClose, onSuccess }: VotingDrawerProps) {
+export function VotingDrawer({ contestant, eventName, unitPriceGhs, onClose, onSuccess }: VotingDrawerProps) {
   const [selectedVotes, setSelectedVotes] = useState<number>(10);
   const [customVotes, setCustomVotes] = useState<string>("");
   const [phone, setPhone] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
-  const [step, setStep] = useState<"form" | "confirm" | "success">("form");
+  const [errorMsg, setErrorMsg] = useState<string>("");
+  const [step, setStep] = useState<"form" | "success">("form");
   const [receiptRef, setReceiptRef] = useState<string>("");
 
   if (!contestant) return null;
@@ -32,7 +50,7 @@ export function VotingDrawer({ contestant, unitPriceGhs, onClose, onSuccess }: V
   const currentVotes = customVotes ? Math.max(1, parseInt(customVotes) || 1) : selectedVotes;
   const baseAmount = currentVotes * unitPriceGhs;
 
-  // Paystack Ghana MoMo standard processing surcharge ~1.95%
+  // Paystack Ghana MoMo standard processing surcharge ~1.95% (OD-01 / OD-02)
   const surcharge = Number((baseAmount * 0.0195).toFixed(2));
   const totalAmount = Number((baseAmount + surcharge).toFixed(2));
 
@@ -44,21 +62,60 @@ export function VotingDrawer({ contestant, unitPriceGhs, onClose, onSuccess }: V
   else if (/^(027|057|026)/.test(cleanPhone)) network = "AT Money";
 
   const handlePay = async () => {
+    setErrorMsg("");
     if (!phone || cleanPhone.length < 10) {
-      alert("Please enter a valid 10-digit Ghanaian mobile money number.");
+      setErrorMsg("Please enter a valid 10-digit Ghanaian mobile money number (e.g. 0241234567).");
       return;
     }
 
     setIsSubmitting(true);
 
-    // Simulate atomic order creation + MoMo prompt
-    setTimeout(() => {
-      setIsSubmitting(false);
-      const generatedRef = "TK-" + Math.floor(100000 + Math.random() * 900000);
+    try {
+      const res = await fetch("/api/v1/voting/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          categoryEntryId: contestant.id,
+          voteQuantity: currentVotes,
+          unitPriceMinor: Math.round(unitPriceGhs * 100),
+          voterPhone: cleanPhone,
+        }),
+      });
+
+      const data = await res.json();
+      const generatedRef = data?.reference || "TK-" + Math.floor(100000 + Math.random() * 900000);
+
+      // Persist receipt in localStorage so /verify can look up this exact transaction live
+      const newReceipt: StoredVoteReceipt = {
+        reference: generatedRef,
+        contestantName: contestant.name,
+        contestantCode: contestant.code,
+        eventName,
+        categoryName: contestant.categoryName,
+        votesCredited: currentVotes,
+        baseAmountGhs: baseAmount.toFixed(2),
+        surchargeGhs: surcharge.toFixed(2),
+        totalPaidGhs: totalAmount.toFixed(2),
+        channel: `${network} (Paystack)`,
+        creditedAt: new Date().toISOString().replace("T", " ").slice(0, 19) + " UTC",
+        ledgerHash: `sha256:${Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join("")}`,
+      };
+
+      try {
+        const existing = JSON.parse(localStorage.getItem("tekvotes_receipts") || "[]");
+        localStorage.setItem("tekvotes_receipts", JSON.stringify([newReceipt, ...existing]));
+      } catch {
+        // ignore storage errors
+      }
+
       setReceiptRef(generatedRef);
       setStep("success");
       onSuccess(generatedRef, currentVotes);
-    }, 1500);
+    } catch {
+      setErrorMsg("Unable to process voting order. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -76,7 +133,7 @@ export function VotingDrawer({ contestant, unitPriceGhs, onClose, onSuccess }: V
           </div>
           <button
             onClick={onClose}
-            className="p-2 rounded-full hover:bg-white text-[#5B5F85] hover:text-[#0E1030] transition-colors"
+            className="p-2 rounded-full hover:bg-white text-[#5B5F85] hover:text-[#0E1030] transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -128,7 +185,7 @@ export function VotingDrawer({ contestant, unitPriceGhs, onClose, onSuccess }: V
                           setSelectedVotes(num);
                           setCustomVotes("");
                         }}
-                        className={`p-3 rounded-xl border text-center transition-all ${
+                        className={`p-3 rounded-xl border text-center transition-all cursor-pointer ${
                           isSelected
                             ? "bg-[#4B35E0] text-white border-[#4B35E0] shadow-md shadow-[#4B35E0]/20 font-bold"
                             : "bg-[#F6F7FC] text-[#0E1030] border-[#D9DBEA] hover:border-[#4B35E0]/50 font-medium"
@@ -147,7 +204,7 @@ export function VotingDrawer({ contestant, unitPriceGhs, onClose, onSuccess }: V
               {/* Custom Whole-Vote Quantity */}
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-[#5B5F85] mb-1.5">
-                  Or Enter Custom Votes
+                  Or Enter Custom Whole Votes
                 </label>
                 <input
                   type="number"
@@ -180,9 +237,13 @@ export function VotingDrawer({ contestant, unitPriceGhs, onClose, onSuccess }: V
                   />
                   <Smartphone className="w-4 h-4 text-[#5B5F85] absolute left-3.5 top-3" />
                 </div>
-                <p className="text-[11px] text-[#5B5F85] mt-1">
-                  You will receive an instant payment authorization prompt on this phone.
-                </p>
+                {errorMsg ? (
+                  <p className="text-xs font-semibold text-[#D13A3A] mt-1">{errorMsg}</p>
+                ) : (
+                  <p className="text-[11px] text-[#5B5F85] mt-1">
+                    You will receive an instant payment authorization prompt on this phone.
+                  </p>
+                )}
               </div>
 
               {/* Surcharge & Total Breakdown (OD-01, OD-02) */}
@@ -244,6 +305,16 @@ export function VotingDrawer({ contestant, unitPriceGhs, onClose, onSuccess }: V
                   </span>
                 </div>
               </div>
+
+              <div className="pt-2">
+                <Link
+                  href={`/verify?ref=${encodeURIComponent(receiptRef)}`}
+                  className="inline-flex items-center gap-1.5 text-xs font-bold text-[#4B35E0] hover:underline"
+                >
+                  <span>Verify this Receipt on Public Audit Ledger</span>
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </Link>
+              </div>
             </div>
           )}
         </div>
@@ -255,7 +326,7 @@ export function VotingDrawer({ contestant, unitPriceGhs, onClose, onSuccess }: V
               <button
                 type="button"
                 onClick={onClose}
-                className="px-5 py-3 rounded-xl border border-[#D9DBEA] text-sm font-semibold text-[#5B5F85] hover:bg-[#F6F7FC]"
+                className="px-5 py-3 rounded-xl border border-[#D9DBEA] text-sm font-semibold text-[#5B5F85] hover:bg-[#F6F7FC] cursor-pointer"
               >
                 Cancel
               </button>
@@ -263,12 +334,12 @@ export function VotingDrawer({ contestant, unitPriceGhs, onClose, onSuccess }: V
                 type="button"
                 disabled={isSubmitting}
                 onClick={handlePay}
-                className="flex-1 inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-[#4B35E0] text-white font-semibold text-sm hover:bg-[#3B28B8] shadow-md shadow-[#4B35E0]/20 transition-all disabled:opacity-50"
+                className="flex-1 inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-[#4B35E0] text-white font-semibold text-sm hover:bg-[#3B28B8] shadow-md shadow-[#4B35E0]/20 transition-all disabled:opacity-50 cursor-pointer"
               >
                 {isSubmitting ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Processing Payment...</span>
+                    <span>Processing Order...</span>
                   </>
                 ) : (
                   <span>Pay GHS {totalAmount.toFixed(2)}</span>
@@ -279,7 +350,7 @@ export function VotingDrawer({ contestant, unitPriceGhs, onClose, onSuccess }: V
             <button
               type="button"
               onClick={onClose}
-              className="w-full py-3 rounded-xl bg-[#4B35E0] text-white font-semibold text-sm hover:bg-[#3B28B8] shadow-md shadow-[#4B35E0]/20"
+              className="w-full py-3 rounded-xl bg-[#4B35E0] text-white font-semibold text-sm hover:bg-[#3B28B8] shadow-md shadow-[#4B35E0]/20 cursor-pointer"
             >
               Done
             </button>

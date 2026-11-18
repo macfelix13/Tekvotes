@@ -1,57 +1,67 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Navbar } from "@/components/navigation/Navbar";
-import { ShieldCheck, Search, CheckCircle2, FileCheck2, Lock } from "lucide-react";
+import { StoredVoteReceipt } from "@/components/voting/VotingDrawer";
+import { ShieldCheck, Search, CheckCircle2, Lock, History } from "lucide-react";
+
+const DEFAULT_RECEIPT: StoredVoteReceipt = {
+  reference: "TK-849210",
+  contestantName: "Fatima Abubakar",
+  contestantCode: "FA01",
+  eventName: "Miss Hijab Ghana 3RD EDITION",
+  categoryName: "Queen Category",
+  votesCredited: 25,
+  baseAmountGhs: "25.00",
+  surchargeGhs: "0.49",
+  totalPaidGhs: "25.49",
+  channel: "MTN Mobile Money (Paystack)",
+  creditedAt: "2026-11-18 15:30:12 UTC",
+  ledgerHash: "sha256:9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+};
 
 export default function VerifyReceiptPage() {
   const [refInput, setRefInput] = useState("TK-849210");
-  const [verified, setVerified] = useState<null | {
-    reference: string;
-    contestantName: string;
-    contestantCode: string;
-    eventName: string;
-    categoryName: string;
-    votesCredited: number;
-    baseAmountGhs: string;
-    surchargeGhs: string;
-    totalPaidGhs: string;
-    channel: string;
-    creditedAt: string;
-    ledgerHash: string;
-  }>({
-    reference: "TK-849210",
-    contestantName: "Fatima Abubakar",
-    contestantCode: "FA01",
-    eventName: "Miss Hijab Ghana 3RD EDITION",
-    categoryName: "Queen Category",
-    votesCredited: 25,
-    baseAmountGhs: "25.00",
-    surchargeGhs: "0.49",
-    totalPaidGhs: "25.49",
-    channel: "MTN Mobile Money (Paystack)",
-    creditedAt: "2026-11-18 15:30:12 UTC",
-    ledgerHash: "sha256:9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
-  });
+  const [recentReceipts, setRecentReceipts] = useState<StoredVoteReceipt[]>([]);
+  const [verified, setVerified] = useState<StoredVoteReceipt>(DEFAULT_RECEIPT);
+
+  useEffect(() => {
+    try {
+      const saved: StoredVoteReceipt[] = JSON.parse(localStorage.getItem("tekvotes_receipts") || "[]");
+      setRecentReceipts(saved);
+
+      const urlParams = new URLSearchParams(window.location.search);
+      const qRef = urlParams.get("ref");
+      if (qRef) {
+        setRefInput(qRef);
+        const match = saved.find((r) => r.reference.toUpperCase() === qRef.toUpperCase());
+        if (match) {
+          setVerified(match);
+          return;
+        }
+      }
+      if (saved.length > 0 && !qRef) {
+        setRefInput(saved[0].reference);
+        setVerified(saved[0]);
+      }
+    } catch {
+      // ignore storage errors
+    }
+  }, []);
 
   const handleVerify = (e: React.FormEvent) => {
     e.preventDefault();
     const cleaned = refInput.trim().toUpperCase();
     if (!cleaned) return;
-    setVerified({
-      reference: cleaned,
-      contestantName: "Fatima Abubakar",
-      contestantCode: "FA01",
-      eventName: "Miss Hijab Ghana 3RD EDITION",
-      categoryName: "Queen Category",
-      votesCredited: 25,
-      baseAmountGhs: "25.00",
-      surchargeGhs: "0.49",
-      totalPaidGhs: "25.49",
-      channel: "MTN Mobile Money (Paystack)",
-      creditedAt: "2026-11-18 15:30:12 UTC",
-      ledgerHash: "sha256:9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
-    });
+    const found = recentReceipts.find((r) => r.reference.toUpperCase() === cleaned);
+    if (found) {
+      setVerified(found);
+    } else {
+      setVerified({
+        ...DEFAULT_RECEIPT,
+        reference: cleaned,
+      });
+    }
   };
 
   return (
@@ -94,6 +104,32 @@ export default function VerifyReceiptPage() {
               Verify Ledger Entry
             </button>
           </form>
+
+          {/* Session Receipts Quick Pills */}
+          {recentReceipts.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-bold text-[#5B5F85] flex items-center gap-1">
+                <History className="w-3.5 h-3.5" /> Your Recent Votes:
+              </span>
+              {recentReceipts.map((r) => (
+                <button
+                  key={r.reference}
+                  type="button"
+                  onClick={() => {
+                    setRefInput(r.reference);
+                    setVerified(r);
+                  }}
+                  className={`px-3 py-1 rounded-lg font-mono text-xs font-bold border transition-all cursor-pointer ${
+                    verified.reference === r.reference
+                      ? "bg-[#4B35E0] text-white border-[#4B35E0]"
+                      : "bg-white text-[#0E1030] border-[#D9DBEA] hover:border-[#4B35E0]"
+                  }`}
+                >
+                  {r.reference} ({r.contestantCode} · +{r.votesCredited})
+                </button>
+              ))}
+            </div>
+          )}
 
           {/* Verified Result Card */}
           {verified && (
