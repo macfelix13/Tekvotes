@@ -10,7 +10,7 @@ export function Navbar() {
         <Logo />
 
         {/* Navigation Links */}
-        <nav className="hidden lg:flex items-center gap-8 text-[15px] font-medium text-[#5B5F85]">
+        <nav className="hidden lg:flex items-center gap-7 text-[15px] font-medium text-[#5B5F85]">
           <Link href="/" className="hover:text-[#4B35E0] transition-colors font-semibold text-[#0E1030]">
             Home
           </Link>
@@ -20,18 +20,18 @@ export function Navbar() {
           <Link href="/competitions" className="hover:text-[#4B35E0] transition-colors">
             Events
           </Link>
-          <Link href="/tickets" className="hover:text-[#4B35E0] transition-colors">
-            Tickets
+          <Link href="/org" className="hover:text-[#4B35E0] transition-colors">
+            Organiser Portal
           </Link>
-          <Link href="/contact" className="hover:text-[#4B35E0] transition-colors">
-            Contact Us
+          <Link href="/admin" className="hover:text-[#4B35E0] transition-colors">
+            Super Admin
           </Link>
         </nav>
 
         {/* Right Actions */}
         <div className="flex items-center gap-3.5">
           <Link
-            href="/competitions?focus=search"
+            href="/competitions"
             aria-label="Search"
             className="p-2.5 rounded-full text-[#5B5F85] hover:text-[#4B35E0] hover:bg-[#F6F7FC] transition-colors"
           >

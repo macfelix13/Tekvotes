@@ -1,6 +1,9 @@
 @import "tailwindcss";
 
 :root {
+  --font-sora: "Sora", system-ui, -apple-system, sans-serif;
+  --font-dm-sans: "DM Sans", system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
   --background: #F6F7FC;
   --foreground: #2A2D55;
   --ink-900: #0E1030;
