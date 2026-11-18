@@ -1,19 +1,22 @@
 "use client";
 
+import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowRight, Building2, Search, Filter } from "lucide-react";
 
 export function CompetitionsClient() {
   const searchParams = useSearchParams();
-  const query = searchParams.get("q") || "";
+  const initialQuery = searchParams.get("q") || "";
+  const [searchInput, setSearchInput] = useState(initialQuery);
+  const [activeCategory, setActiveCategory] = useState<"All" | "Pageants" | "Awards" | "Talent">("All");
 
   const allEvents = [
     {
       id: "ev-1",
       slug: "miss-hijab-ghana-2026",
       title: "Miss Hijab Ghana 3RD EDITION",
-      category: "Pageants",
+      category: "Pageants" as const,
       organizer: "Model Tv Ghana",
       image: "https://images.unsplash.com/photo-1567401893414-76b7b1e5a7a5?auto=format&fit=crop&w=600&q=80",
       contestantsCount: 16,
@@ -24,7 +27,7 @@ export function CompetitionsClient() {
       id: "ev-2",
       slug: "mempeasem-circuit-awards-2026",
       title: "MEMPEASEM CIRCUIT MYF DINNER AND AWARDS 2026",
-      category: "Awards",
+      category: "Awards" as const,
       organizer: "Mempeasem Circuit MYF",
       image: "https://images.unsplash.com/photo-1511578314322-379afb476865?auto=format&fit=crop&w=600&q=80",
       contestantsCount: 24,
@@ -35,7 +38,7 @@ export function CompetitionsClient() {
       id: "ev-3",
       slug: "kids-talent-show-2026",
       title: "KID'S TALENT SHOW 5th Edition 2026",
-      category: "Talent",
+      category: "Talent" as const,
       organizer: "Kids Talent Show Network",
       image: "https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?auto=format&fit=crop&w=600&q=80",
       contestantsCount: 30,
@@ -46,7 +49,7 @@ export function CompetitionsClient() {
       id: "ev-4",
       slug: "miss-campus-ghana-2026",
       title: "MISS CAMPUS GHANA 2026 FINALS",
-      category: "Pageants",
+      category: "Pageants" as const,
       organizer: "Campus Media Group",
       image: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=600&q=80",
       contestantsCount: 12,
@@ -57,7 +60,7 @@ export function CompetitionsClient() {
       id: "ev-5",
       slug: "ghana-gospel-industry-awards",
       title: "Ghana National Gospel Music Honors 2026",
-      category: "Awards",
+      category: "Awards" as const,
       organizer: "Gospel Music Guild",
       image: "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&w=600&q=80",
       contestantsCount: 45,
@@ -68,7 +71,7 @@ export function CompetitionsClient() {
       id: "ev-6",
       slug: "accra-varsity-dance-championship",
       title: "Accra Varsity Dance Clash 2026",
-      category: "Talent",
+      category: "Talent" as const,
       organizer: "Inter-Campus Arts Council",
       image: "https://images.unsplash.com/photo-1547153760-18fc86324498?auto=format&fit=crop&w=600&q=80",
       contestantsCount: 18,
@@ -77,13 +80,14 @@ export function CompetitionsClient() {
     },
   ];
 
-  const filteredEvents = query
-    ? allEvents.filter(
-        (e) =>
-          e.title.toLowerCase().includes(query.toLowerCase()) ||
-          e.organizer.toLowerCase().includes(query.toLowerCase())
-      )
-    : allEvents;
+  const filteredEvents = allEvents.filter((e) => {
+    const matchesCat = activeCategory === "All" || e.category === activeCategory;
+    const matchesQuery =
+      !searchInput.trim() ||
+      e.title.toLowerCase().includes(searchInput.toLowerCase()) ||
+      e.organizer.toLowerCase().includes(searchInput.toLowerCase());
+    return matchesCat && matchesQuery;
+  });
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -97,30 +101,40 @@ export function CompetitionsClient() {
         </p>
       </div>
 
-      {/* Filter Bar */}
+      {/* Interactive Filter Bar */}
       <div className="bg-white rounded-2xl p-4 border border-[#D9DBEA] shadow-xs mb-8 flex flex-col sm:flex-row items-center justify-between gap-4">
         <div className="flex items-center gap-2 overflow-x-auto w-full sm:w-auto pb-2 sm:pb-0">
           <span className="text-xs font-bold uppercase text-[#5B5F85] flex items-center gap-1 mr-2">
             <Filter className="w-3.5 h-3.5" /> Category:
           </span>
-          <button className="px-3.5 py-1.5 rounded-lg bg-[#4B35E0] text-white text-xs font-semibold">
-            All Events ({filteredEvents.length})
-          </button>
-          <button className="px-3.5 py-1.5 rounded-lg bg-[#F6F7FC] text-[#5B5F85] hover:text-[#0E1030] text-xs font-semibold">
-            Pageants
-          </button>
-          <button className="px-3.5 py-1.5 rounded-lg bg-[#F6F7FC] text-[#5B5F85] hover:text-[#0E1030] text-xs font-semibold">
-            Awards
-          </button>
-          <button className="px-3.5 py-1.5 rounded-lg bg-[#F6F7FC] text-[#5B5F85] hover:text-[#0E1030] text-xs font-semibold">
-            Talent Shows
-          </button>
+          {(
+            [
+              { id: "All", label: `All Events (${allEvents.length})` },
+              { id: "Pageants", label: "Pageants" },
+              { id: "Awards", label: "Awards" },
+              { id: "Talent", label: "Talent Shows" },
+            ] as const
+          ).map((cat) => (
+            <button
+              key={cat.id}
+              type="button"
+              onClick={() => setActiveCategory(cat.id)}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                activeCategory === cat.id
+                  ? "bg-[#4B35E0] text-white shadow-xs"
+                  : "bg-[#F6F7FC] text-[#5B5F85] hover:text-[#0E1030]"
+              }`}
+            >
+              {cat.label}
+            </button>
+          ))}
         </div>
 
         <div className="w-full sm:w-72 relative">
           <input
             type="text"
-            defaultValue={query}
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
             placeholder="Search events or organizers..."
             className="w-full pl-9 pr-4 py-2 rounded-xl bg-[#F6F7FC] border border-[#D9DBEA] text-xs text-[#0E1030] focus:outline-none focus:ring-2 focus:ring-[#4B35E0]"
           />

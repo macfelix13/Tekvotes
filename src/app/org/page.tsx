@@ -12,11 +12,11 @@ import {
   Lock,
   CheckCircle2,
   Clock,
-  BarChart3,
   Scale,
   ArrowUpRight,
   ShieldAlert,
   Sparkles,
+  X,
 } from "lucide-react";
 
 export default function OrganizerDashboardPage() {
@@ -24,8 +24,20 @@ export default function OrganizerDashboardPage() {
   const [visibilityMode, setVisibilityMode] = useState<"counts" | "percent" | "ranks_only">("counts");
   const [resultsState, setResultsState] = useState<"hidden" | "live" | "final">("live");
   const [payoutNotice, setPayoutNotice] = useState<string>("");
+  const [resultsPublished, setResultsPublished] = useState(false);
 
-  const orgEvents = [
+  // Modals
+  const [showNewEventModal, setShowNewEventModal] = useState(false);
+  const [newEventName, setNewEventName] = useState("");
+  const [newEventCode, setNewEventCode] = useState("");
+  const [newEventPrice, setNewEventPrice] = useState("1.00");
+
+  const [showNewContestantModal, setShowNewContestantModal] = useState(false);
+  const [newContestantName, setNewContestantName] = useState("");
+  const [newContestantCode, setNewContestantCode] = useState("");
+  const [newContestantCat, setNewContestantCat] = useState("Queen Category");
+
+  const [orgEvents, setOrgEvents] = useState([
     {
       id: "ev-1",
       name: "Miss Hijab Ghana 3RD EDITION",
@@ -52,7 +64,56 @@ export default function OrganizerDashboardPage() {
       escrowState: "Released for Post-Event Transfer",
       closesAt: "Ended Nov 10, 2026",
     },
-  ];
+  ]);
+
+  const [contestantList, setContestantList] = useState([
+    { code: "FA01", name: "Fatima Abubakar", cat: "Queen Category", status: "Active", votes: 6840 },
+    { code: "MZ04", name: "Mariam Zakaria", cat: "Queen Category", status: "Active", votes: 5910 },
+    { code: "AS07", name: "Amina Sulemana", cat: "Queen Category", status: "Active", votes: 4320 },
+    { code: "ZH02", name: "Zeinab Haruna", cat: "Queen Category", status: "Active", votes: 3890 },
+  ]);
+
+  const handleCreateEvent = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newEventName.trim() || !newEventCode.trim()) return;
+    setOrgEvents((prev) => [
+      {
+        id: `ev-${Date.now()}`,
+        name: newEventName.trim(),
+        code: newEventCode.trim().toUpperCase(),
+        approvalStatus: "pending_review",
+        votingStatus: "scheduled",
+        totalVotes: 0,
+        grossBaseGhs: 0,
+        commissionGhs: 0,
+        netPayableGhs: 0,
+        escrowState: "Pending Super Admin Voting Approval (OD-14)",
+        closesAt: "Dec 31, 2026",
+      },
+      ...prev,
+    ]);
+    setNewEventName("");
+    setNewEventCode("");
+    setShowNewEventModal(false);
+  };
+
+  const handleAddContestant = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newContestantName.trim() || !newContestantCode.trim()) return;
+    setContestantList((prev) => [
+      ...prev,
+      {
+        code: newContestantCode.trim().toUpperCase(),
+        name: newContestantName.trim(),
+        cat: newContestantCat,
+        status: "Active",
+        votes: 0,
+      },
+    ]);
+    setNewContestantName("");
+    setNewContestantCode("");
+    setShowNewContestantModal(false);
+  };
 
   return (
     <div className="min-h-screen flex flex-col bg-[#F6F7FC]">
@@ -83,7 +144,7 @@ export default function OrganizerDashboardPage() {
               </Link>
               <button
                 type="button"
-                onClick={() => alert("New Event Wizard opens here (Draft -> Submit for Super Admin Voting Approval).")}
+                onClick={() => setShowNewEventModal(true)}
                 className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#F2A900] text-[#0E1030] font-bold text-xs hover:bg-[#D99600] transition-all cursor-pointer"
               >
                 <Plus className="w-4 h-4" /> Create New Event
@@ -132,7 +193,7 @@ export default function OrganizerDashboardPage() {
           <div className="flex flex-wrap items-center gap-2 border-b border-[#D9DBEA] pb-3">
             {[
               { id: "events", label: "Events & Leaderboard Settings", icon: Trophy },
-              { id: "contestants", label: "Contestants & Short Codes", icon: Users },
+              { id: "contestants", label: `Contestants & Short Codes (${contestantList.length})`, icon: Users },
               { id: "judging", label: "Judging & Hybrid Results (OD-12)", icon: Scale },
               { id: "funds", label: "Event Funds & Post-Close Payouts", icon: Wallet },
             ].map((tab) => {
@@ -175,7 +236,9 @@ export default function OrganizerDashboardPage() {
                             className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full ${
                               ev.votingStatus === "active"
                                 ? "bg-[#E6F8F0] text-[#0F9D6B]"
-                                : "bg-[#D9DBEA] text-[#0E1030]"
+                                : ev.votingStatus === "closed"
+                                ? "bg-[#D9DBEA] text-[#0E1030]"
+                                : "bg-[#FDF3D6] text-[#C77700]"
                             }`}
                           >
                             Voting: {ev.votingStatus.toUpperCase()}
@@ -275,7 +338,7 @@ export default function OrganizerDashboardPage() {
                 </div>
                 <button
                   type="button"
-                  onClick={() => alert("Add Contestant modal triggered.")}
+                  onClick={() => setShowNewContestantModal(true)}
                   className="px-4 py-2 rounded-xl bg-[#4B35E0] text-white text-xs font-bold hover:bg-[#3B28B8] cursor-pointer"
                 >
                   + Add Contestant
@@ -294,12 +357,7 @@ export default function OrganizerDashboardPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#D9DBEA]">
-                    {[
-                      { code: "FA01", name: "Fatima Abubakar", cat: "Queen Category", status: "Active", votes: 6840 },
-                      { code: "MZ04", name: "Mariam Zakaria", cat: "Queen Category", status: "Active", votes: 5910 },
-                      { code: "AS07", name: "Amina Sulemana", cat: "Queen Category", status: "Active", votes: 4320 },
-                      { code: "ZH02", name: "Zeinab Haruna", cat: "Queen Category", status: "Active", votes: 3890 },
-                    ].map((c) => (
+                    {contestantList.map((c) => (
                       <tr key={c.code} className="hover:bg-[#F6F7FC]">
                         <td className="py-3 px-4 font-mono font-bold text-[#4B35E0]">{c.code}</td>
                         <td className="py-3 px-4 font-semibold text-[#0E1030]">{c.name}</td>
@@ -333,9 +391,27 @@ export default function OrganizerDashboardPage() {
                     Submitted judge scores are locked from direct mutation (Q38). Missing judge scores block final publication (OD-12).
                   </p>
                 </div>
-                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#E6F8F0] text-[#0F9D6B] text-xs font-bold">
-                  <Lock className="w-3.5 h-3.5" /> All Judge Submissions Locked
-                </span>
+                <div className="flex items-center gap-3">
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#E6F8F0] text-[#0F9D6B] text-xs font-bold">
+                    <Lock className="w-3.5 h-3.5" /> All Judge Submissions Locked
+                  </span>
+                  {!resultsPublished ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setResultsPublished(true);
+                        setResultsState("final");
+                      }}
+                      className="px-4 py-2 rounded-xl bg-[#4B35E0] text-white text-xs font-bold hover:bg-[#3B28B8] cursor-pointer"
+                    >
+                      Publish Official Final Results
+                    </button>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-[#0E1030] text-[#F2A900] text-xs font-bold">
+                      <CheckCircle2 className="w-3.5 h-3.5" /> Final Snapshot Published
+                    </span>
+                  )}
+                </div>
               </div>
 
               <div className="overflow-x-auto">
@@ -450,6 +526,176 @@ export default function OrganizerDashboardPage() {
           )}
         </div>
       </main>
+
+      {/* Modal 1: Create New Event Wizard */}
+      {showNewEventModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 border border-[#D9DBEA] shadow-2xl space-y-5">
+            <div className="flex items-center justify-between border-b border-[#D9DBEA] pb-3">
+              <div>
+                <span className="text-xs font-bold uppercase text-[#4B35E0]">New Competition</span>
+                <h3 className="font-heading font-extrabold text-lg text-[#0E1030]">
+                  Create Event & Submit for Approval
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowNewEventModal(false)}
+                className="p-1.5 rounded-full hover:bg-[#F6F7FC]"
+              >
+                <X className="w-5 h-5 text-[#5B5F85]" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateEvent} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold uppercase text-[#5B5F85] mb-1">
+                  Event Title
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={newEventName}
+                  onChange={(e) => setNewEventName(e.target.value)}
+                  placeholder="e.g. Ghana Tertiary Excellence Awards 2026"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#F6F7FC] border border-[#D9DBEA] text-xs text-[#0E1030]"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold uppercase text-[#5B5F85] mb-1">
+                    Event Public Code
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={newEventCode}
+                    onChange={(e) => setNewEventCode(e.target.value)}
+                    placeholder="e.g. GTEA26"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-[#F6F7FC] border border-[#D9DBEA] font-mono text-xs text-[#0E1030]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold uppercase text-[#5B5F85] mb-1">
+                    Vote Unit Price (GHS)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.50"
+                    min="0.50"
+                    value={newEventPrice}
+                    onChange={(e) => setNewEventPrice(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-[#F6F7FC] border border-[#D9DBEA] font-mono text-xs text-[#0E1030]"
+                  />
+                </div>
+              </div>
+
+              <p className="text-[11px] text-[#5B5F85]">
+                Per Rule OD-14 / ND-07, your event can be previewed as &quot;Coming Soon&quot; immediately while Super Admin reviews voting activation.
+              </p>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowNewEventModal(false)}
+                  className="px-4 py-2.5 rounded-xl border border-[#D9DBEA] text-xs font-bold text-[#5B5F85]"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2.5 rounded-xl bg-[#4B35E0] text-white text-xs font-bold hover:bg-[#3B28B8] cursor-pointer"
+                >
+                  Create & Request Approval
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal 2: Add Contestant */}
+      {showNewContestantModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 border border-[#D9DBEA] shadow-2xl space-y-5">
+            <div className="flex items-center justify-between border-b border-[#D9DBEA] pb-3">
+              <div>
+                <span className="text-xs font-bold uppercase text-[#4B35E0]">Register Nominee</span>
+                <h3 className="font-heading font-extrabold text-lg text-[#0E1030]">
+                  Add Contestant & Short Code
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowNewContestantModal(false)}
+                className="p-1.5 rounded-full hover:bg-[#F6F7FC]"
+              >
+                <X className="w-5 h-5 text-[#5B5F85]" />
+              </button>
+            </div>
+
+            <form onSubmit={handleAddContestant} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold uppercase text-[#5B5F85] mb-1">
+                  Contestant Full Name
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={newContestantName}
+                  onChange={(e) => setNewContestantName(e.target.value)}
+                  placeholder="e.g. Khadija Osman"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#F6F7FC] border border-[#D9DBEA] text-xs text-[#0E1030]"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold uppercase text-[#5B5F85] mb-1">
+                    Short Code
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={newContestantCode}
+                    onChange={(e) => setNewContestantCode(e.target.value)}
+                    placeholder="e.g. KO15"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-[#F6F7FC] border border-[#D9DBEA] font-mono text-xs text-[#0E1030]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold uppercase text-[#5B5F85] mb-1">
+                    Category
+                  </label>
+                  <input
+                    type="text"
+                    value={newContestantCat}
+                    onChange={(e) => setNewContestantCat(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-[#F6F7FC] border border-[#D9DBEA] text-xs text-[#0E1030]"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowNewContestantModal(false)}
+                  className="px-4 py-2.5 rounded-xl border border-[#D9DBEA] text-xs font-bold text-[#5B5F85]"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2.5 rounded-xl bg-[#4B35E0] text-white text-xs font-bold hover:bg-[#3B28B8] cursor-pointer"
+                >
+                  Add Contestant
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
