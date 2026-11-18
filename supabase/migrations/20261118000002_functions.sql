@@ -25,7 +25,7 @@ create trigger audit_logs_no_truncate before truncate on public.audit_logs
 
 -- profile auto-creation when an auth user appears
 create or replace function private.handle_new_user() returns trigger
-language plpgsql security definer set search_path = '' as $$
+language plpgsql security definer set search_path = public, pg_temp as $$
 begin
   insert into public.profiles (id, email, display_name)
   values (new.id, new.email, coalesce(new.raw_user_meta_data ->> 'full_name', ''))
@@ -42,7 +42,7 @@ create or replace function private.write_audit(
   p_org uuid default null, p_event uuid default null,
   p_before jsonb default null, p_after jsonb default null, p_reason text default null,
   p_actor_kind text default 'user')
-returns void language sql security definer set search_path = '' as $$
+returns void language sql security definer set search_path = public, pg_temp as $$
   insert into public.audit_logs
     (actor_id, actor_kind, action, resource_type, resource_id, organization_id, event_id, before, after, reason)
   values (p_actor, p_actor_kind, p_action, p_resource_type, p_resource_id, p_org, p_event, p_before, p_after, p_reason);
@@ -50,7 +50,7 @@ $$;
 
 -- ---------------------------------------------------------------- authorization
 create or replace function private.user_is_platform(p_user uuid, p_role text default null)
-returns boolean language sql stable security definer set search_path = '' as $$
+returns boolean language sql stable security definer set search_path = public, pg_temp as $$
   select exists (
     select 1 from public.platform_staff s
     where s.user_id = p_user and s.revoked_at is null
@@ -58,7 +58,7 @@ returns boolean language sql stable security definer set search_path = '' as $$
 $$;
 
 create or replace function private.is_platform(p_role text default null)
-returns boolean language sql stable security definer set search_path = '' as $$
+returns boolean language sql stable security definer set search_path = public, pg_temp as $$
   select private.user_is_platform((select auth.uid()), p_role);
 $$;
 
@@ -66,7 +66,7 @@ $$;
 create or replace function private.user_has_perm(
   p_user uuid, p_perm text, p_org uuid, p_event uuid default null,
   p_category uuid default null, p_entry uuid default null)
-returns boolean language sql stable security definer set search_path = '' as $$
+returns boolean language sql stable security definer set search_path = public, pg_temp as $$
   with live as (
     select ra.id, ra.role_template_id
     from public.role_assignments ra
@@ -97,13 +97,13 @@ $$;
 create or replace function private.has_perm(
   p_perm text, p_org uuid, p_event uuid default null,
   p_category uuid default null, p_entry uuid default null)
-returns boolean language sql stable security definer set search_path = '' as $$
+returns boolean language sql stable security definer set search_path = public, pg_temp as $$
   select private.user_has_perm((select auth.uid()), p_perm, p_org, p_event, p_category, p_entry);
 $$;
 
 -- Any active assignment touching this event (lets managers/judges read parent event metadata).
 create or replace function private.has_any_event_assignment(p_org uuid, p_event uuid)
-returns boolean language sql stable security definer set search_path = '' as $$
+returns boolean language sql stable security definer set search_path = public, pg_temp as $$
   select exists (
     select 1 from public.role_assignments ra
     join public.organizations o on o.id = ra.organization_id and o.status = 'approved'
@@ -115,13 +115,13 @@ returns boolean language sql stable security definer set search_path = '' as $$
 $$;
 
 create or replace function private.is_org_member(p_org uuid)
-returns boolean language sql stable security definer set search_path = '' as $$
+returns boolean language sql stable security definer set search_path = public, pg_temp as $$
   select exists (select 1 from public.organization_members m
                  where m.organization_id = p_org and m.user_id = (select auth.uid()) and m.status = 'active');
 $$;
 
 create or replace function private.user_is_org_owner(p_user uuid, p_org uuid)
-returns boolean language sql stable security definer set search_path = '' as $$
+returns boolean language sql stable security definer set search_path = public, pg_temp as $$
   select exists (select 1 from public.organization_members m
                  where m.organization_id = p_org and m.user_id = p_user and m.is_owner and m.status = 'active');
 $$;
@@ -131,7 +131,7 @@ $$;
 create or replace function private.assert_can_grant(
   p_actor uuid, p_template_id uuid, p_org uuid, p_event uuid, p_category uuid, p_entry uuid,
   p_grants text[])
-returns void language plpgsql stable security definer set search_path = '' as $$
+returns void language plpgsql stable security definer set search_path = public, pg_temp as $$
 declare
   v_template public.role_templates%rowtype;
   v_perm record;
@@ -176,7 +176,7 @@ create or replace function private.do_grant(
   p_actor uuid, p_user uuid, p_template_id uuid, p_org uuid,
   p_event uuid, p_category uuid, p_entry uuid,
   p_grants text[], p_denies text[], p_can_delegate boolean, p_expires timestamptz)
-returns uuid language plpgsql security definer set search_path = '' as $$
+returns uuid language plpgsql security definer set search_path = public, pg_temp as $$
 declare
   v_id uuid;
   v_perm text;
@@ -227,13 +227,13 @@ create or replace function public.app_grant_role(
   p_event uuid default null, p_category uuid default null, p_entry uuid default null,
   p_grants text[] default '{}', p_denies text[] default '{}',
   p_can_delegate boolean default false, p_expires timestamptz default null)
-returns uuid language sql security definer set search_path = '' as $$
+returns uuid language sql security definer set search_path = public, pg_temp as $$
   select private.do_grant(p_actor, p_user, p_template_id, p_org, p_event, p_category, p_entry,
                           p_grants, p_denies, p_can_delegate, p_expires);
 $$;
 
 create or replace function public.app_revoke_role(p_assignment uuid, p_actor uuid, p_reason text)
-returns void language plpgsql security definer set search_path = '' as $$
+returns void language plpgsql security definer set search_path = public, pg_temp as $$
 declare
   v_ra public.role_assignments%rowtype;
   v_tpl_key text;
@@ -261,7 +261,7 @@ begin
 end $$;
 
 create or replace function public.app_approve_org_application(p_app uuid, p_reviewer uuid, p_slug text)
-returns uuid language plpgsql security definer set search_path = '' as $$
+returns uuid language plpgsql security definer set search_path = public, pg_temp as $$
 declare
   v_app public.organization_applications%rowtype;
   v_org uuid;
@@ -302,7 +302,7 @@ begin
 end $$;
 
 create or replace function public.app_reject_org_application(p_app uuid, p_reviewer uuid, p_reason text)
-returns void language plpgsql security definer set search_path = '' as $$
+returns void language plpgsql security definer set search_path = public, pg_temp as $$
 declare v_app public.organization_applications%rowtype;
 begin
   if not private.user_is_platform(p_reviewer, 'super_admin') then
@@ -326,7 +326,7 @@ create or replace function public.app_create_invitation(
   p_token_hash text, p_event uuid default null, p_category uuid default null, p_entry uuid default null,
   p_grants text[] default '{}', p_denies text[] default '{}', p_can_delegate boolean default false,
   p_ttl interval default interval '7 days')
-returns uuid language plpgsql security definer set search_path = '' as $$
+returns uuid language plpgsql security definer set search_path = public, pg_temp as $$
 declare v_id uuid;
 begin
   perform private.assert_can_grant(p_actor, p_template_id, p_org, p_event, p_category, p_entry, p_grants);
@@ -342,7 +342,7 @@ begin
 end $$;
 
 create or replace function public.app_accept_invitation(p_token_hash text, p_user uuid)
-returns uuid language plpgsql security definer set search_path = '' as $$
+returns uuid language plpgsql security definer set search_path = public, pg_temp as $$
 declare
   v_inv public.organization_invitations%rowtype;
   v_email citext;
@@ -371,7 +371,7 @@ begin
 end $$;
 
 create or replace function public.app_bootstrap_super_admin(p_email citext)
-returns void language plpgsql security definer set search_path = '' as $$
+returns void language plpgsql security definer set search_path = public, pg_temp as $$
 declare v_user uuid;
 begin
   select id into v_user from public.profiles where email = p_email;

@@ -43,6 +43,11 @@ grant select (id, organization_id, email, role_template_id, event_id, category_i
 grant select on public.audit_logs                to authenticated;
 -- reserved_slugs, idempotency_records, platform_settings: no client grants.
 
+grant all on all tables in schema public to service_role;
+grant all on all sequences in schema public to service_role;
+alter default privileges in schema public grant all on tables to service_role;
+alter default privileges in schema public grant all on sequences to service_role;
+
 -- ---------------------------------------------------------------- policies
 create policy currencies_read on public.currencies for select to anon, authenticated using (enabled);
 
@@ -168,10 +173,10 @@ insert into public.role_templates (key, name, scope_level, is_system) values
   ('contestant_manager', 'Contestant Manager', 'entry',        true),
   ('judge',              'Judge',              'category',     true);
 
--- Owner: everything organization/event/entry scoped (not platform.*, finance.*, judging.*).
+-- Owner: everything organization/event/entry/category scoped (not platform.*, finance.*).
 insert into public.role_template_permissions (role_template_id, permission_key)
 select t.id, p.key from public.role_templates t
-join public.permissions p on p.scope_level in ('organization', 'event', 'entry')
+join public.permissions p on p.scope_level in ('organization', 'event', 'entry', 'category')
 where t.key = 'org_owner';
 
 -- Org Admin: no defaults. Everything is granted explicitly via overrides (financial never automatic).
