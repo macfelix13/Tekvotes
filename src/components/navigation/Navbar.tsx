@@ -10,15 +10,18 @@ export function Navbar() {
         <Logo />
 
         {/* Navigation Links */}
-        <nav className="hidden lg:flex items-center gap-7 text-[15px] font-medium text-[#5B5F85]">
+        <nav className="hidden lg:flex items-center gap-6 text-[15px] font-medium text-[#5B5F85]">
           <Link href="/" className="hover:text-[#4B35E0] transition-colors font-semibold text-[#0E1030]">
             Home
           </Link>
-          <Link href="/#about" className="hover:text-[#4B35E0] transition-colors">
-            About
-          </Link>
           <Link href="/competitions" className="hover:text-[#4B35E0] transition-colors">
             Events
+          </Link>
+          <Link href="/verify" className="hover:text-[#4B35E0] transition-colors">
+            Verify Vote
+          </Link>
+          <Link href="/judge" className="hover:text-[#4B35E0] transition-colors">
+            Judge Ballot
           </Link>
           <Link href="/org" className="hover:text-[#4B35E0] transition-colors">
             Organiser Portal
