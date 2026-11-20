@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { Navbar } from "@/components/navigation/Navbar";
-import { Building2, CheckCircle, AlertCircle, ArrowRight } from "lucide-react";
+import { CheckCircle, AlertCircle, ArrowRight } from "lucide-react";
 
 export default function ApplyPage() {
   const [formData, setFormData] = useState({
@@ -31,33 +31,16 @@ export default function ApplyPage() {
         body: JSON.stringify(formData),
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => null);
 
       if (!res.ok) {
         throw new Error(data?.error?.message || "Failed to submit application");
       }
 
-      try {
-        const stored = JSON.parse(sessionStorage.getItem("tekvotes_org_applications") || "[]");
-        const nextApps = [
-          {
-            id: data?.data?.id || `app-${Date.now()}`,
-            orgName: formData.orgName,
-            applicant: `${formData.applicantName} (${formData.applicantEmail})`,
-            eventType: `${formData.orgType.replace(/_/g, " ").toUpperCase()} — ${formData.description || "New Organizer Onboarding"}`,
-            status: "pending",
-          },
-          ...stored,
-        ];
-        sessionStorage.setItem("tekvotes_org_applications", JSON.stringify(nextApps));
-      } catch {
-        // Ignore storage errors
-      }
-
       setStatus("success");
-    } catch (err: any) {
+    } catch (err: unknown) {
       setStatus("error");
-      setErrorMessage(err.message || "An unexpected error occurred");
+      setErrorMessage(err instanceof Error ? err.message : "An unexpected error occurred");
     }
   };
 
@@ -83,20 +66,20 @@ export default function ApplyPage() {
                 </div>
                 <h3 className="font-heading font-bold text-xl text-[#0E1030]">Application Submitted!</h3>
                 <p className="text-sm text-[#5B5F85] max-w-md mx-auto">
-                  Our Super Admin team reviews all organizer applications to maintain platform trust. You will receive an email update once your application is reviewed.
+                  Your application has been saved for Super Admin review. Once approved, you can sign in with your email at the workspace login page.
                 </p>
                 <div className="pt-3 flex flex-wrap items-center justify-center gap-3">
                   <Link
-                    href="/admin"
+                    href="/auth/login?redirectTo=/org"
                     className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#4B35E0] text-white text-xs font-bold hover:bg-[#3B28B8] transition-colors"
                   >
-                    Review in Super Admin Approvals Queue →
+                    Sign In to Workspace →
                   </Link>
                   <Link
-                    href="/org"
+                    href="/competitions"
                     className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl border border-[#D9DBEA] text-[#0E1030] text-xs font-bold hover:bg-[#F6F7FC] transition-colors"
                   >
-                    Open Organiser Portal
+                    Browse Competitions
                   </Link>
                 </div>
               </div>
@@ -227,7 +210,7 @@ export default function ApplyPage() {
                 <button
                   type="submit"
                   disabled={status === "submitting"}
-                  className="w-full py-3 rounded-xl bg-[#4B35E0] text-white font-semibold text-sm hover:bg-[#3B28B8] disabled:opacity-50 transition-all flex items-center justify-center gap-2 mt-6"
+                  className="w-full py-3 rounded-xl bg-[#4B35E0] text-white font-semibold text-sm hover:bg-[#3B28B8] disabled:opacity-50 transition-all flex items-center justify-center gap-2 mt-6 cursor-pointer"
                 >
                   {status === "submitting" ? "Submitting Application..." : "Submit Application for Review"}
                   <ArrowRight className="w-4 h-4" />

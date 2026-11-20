@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/server";
@@ -12,6 +13,14 @@ const applySchema = z.object({
   website: z.string().url().optional().or(z.literal("")),
 });
 
+function normalizePhone(raw: string): string | null {
+  const cleaned = raw.replace(/[\s()-]/g, "");
+  if (/^\+[1-9][0-9]{7,14}$/.test(cleaned)) return cleaned;
+  if (/^0[0-9]{9}$/.test(cleaned)) return `+233${cleaned.slice(1)}`;
+  if (/^233[0-9]{9}$/.test(cleaned)) return `+${cleaned}`;
+  return null;
+}
+
 export async function POST(req: NextRequest) {
   try {
     const json = await req.json();
@@ -24,75 +33,96 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { applicantName, applicantEmail, applicantPhone, orgName, orgType, description, website } = parsed.data;
+    const { applicantName, applicantEmail, applicantPhone, orgName, orgType, description, website } =
+      parsed.data;
 
-    try {
-      const supabase = createAdminClient();
+    const phoneE164 = normalizePhone(applicantPhone);
+    const supabase = createAdminClient();
+    const normalizedEmail = applicantEmail.trim().toLowerCase();
 
-      // 1. Ensure or create profile for applicant email
-      const { data: existingProfile } = await supabase
-        .from("profiles")
-        .select("id")
-        .eq("email", applicantEmail)
-        .maybeSingle();
+    // 1. Find existing profile or create confirmed Auth user (on_auth_user_created creates profiles row)
+    const { data: existingProfile } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("email", normalizedEmail)
+      .maybeSingle();
 
-      let userId = existingProfile?.id;
+    let userId = existingProfile?.id as string | undefined;
 
-      if (!userId) {
-        const { data: newProfile, error: profileErr } = await supabase
-          .from("profiles")
-          .insert({
-            display_name: applicantName,
-            email: applicantEmail,
-            phone_e164: applicantPhone.startsWith("+") ? applicantPhone : `+233${applicantPhone.replace(/^0/, "")}`,
-          })
-          .select("id")
-          .single();
+    if (!userId) {
+      const { data: created, error: authErr } = await supabase.auth.admin.createUser({
+        email: normalizedEmail,
+        password: randomBytes(24).toString("base64url"),
+        email_confirm: true,
+        user_metadata: { full_name: applicantName },
+      });
 
-        if (profileErr) throw profileErr;
-        userId = newProfile.id;
-      }
-
-      // 2. Insert organization application
-      const { data: appData, error: appErr } = await supabase
-        .from("organization_applications")
-        .insert({
-          applicant_user_id: userId,
-          applicant_name: applicantName,
-          applicant_email: applicantEmail,
-          applicant_phone: applicantPhone,
-          org_name: orgName,
-          org_type: orgType || "beauty_pageant",
-          description: description || null,
-          website: website || null,
-          status: "pending",
-        })
-        .select("id, status, created_at")
-        .single();
-
-      if (appErr) {
-        if (appErr.code === "23505") {
-          return NextResponse.json(
-            { error: { code: "PENDING_APPLICATION_EXISTS", message: "You already have a pending application under review." } },
-            { status: 409 }
-          );
+      if (created?.user?.id) {
+        userId = created.user.id;
+      } else {
+        // Handle case where user already exists in auth.users without profile email match
+        const { data: listData } = await supabase.auth.admin.listUsers({ perPage: 1000 });
+        const matched = listData?.users?.find((u) => u.email?.toLowerCase() === normalizedEmail);
+        if (!matched) {
+          throw authErr ?? new Error("Could not provision applicant account");
         }
-        throw appErr;
+        userId = matched.id;
       }
 
-      return NextResponse.json({ success: true, data: appData });
-    } catch (err) {
-      // Never report success when the application was not persisted.
-      console.error("org-application persist failed", err instanceof Error ? err.message : err);
-      return NextResponse.json(
-        { error: { code: "APPLICATION_FAILED", message: "We could not save your application. Please try again shortly." } },
-        { status: 500 }
+      await supabase.from("profiles").upsert(
+        {
+          id: userId,
+          display_name: applicantName,
+          email: normalizedEmail,
+          phone_e164: phoneE164,
+        },
+        { onConflict: "id" }
       );
+    } else if (phoneE164) {
+      await supabase
+        .from("profiles")
+        .update({ display_name: applicantName, phone_e164: phoneE164 })
+        .eq("id", userId);
     }
+
+    // 2. Insert organization application
+    const { data: appData, error: appErr } = await supabase
+      .from("organization_applications")
+      .insert({
+        applicant_user_id: userId,
+        applicant_name: applicantName,
+        applicant_email: normalizedEmail,
+        applicant_phone: phoneE164 ?? applicantPhone,
+        org_name: orgName,
+        org_type: orgType || "beauty_pageant",
+        description: description || null,
+        website: website || null,
+        status: "pending",
+      })
+      .select("id, status, created_at")
+      .single();
+
+    if (appErr) {
+      if (appErr.code === "23505") {
+        return NextResponse.json(
+          {
+            error: {
+              code: "PENDING_APPLICATION_EXISTS",
+              message: "You already have a pending application under review.",
+            },
+          },
+          { status: 409 }
+        );
+      }
+      throw appErr;
+    }
+
+    return NextResponse.json({ success: true, data: appData }, { status: 201 });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Failed to process application";
+    console.error("org-application persist failed:", message);
     return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message } },
+      { error: { code: "APPLICATION_FAILED", message: "We could not save your application. Please try again shortly." } },
       { status: 500 }
     );
   }
