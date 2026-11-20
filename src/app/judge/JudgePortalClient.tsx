@@ -54,6 +54,12 @@ export function JudgePortalClient({
   const [busyEntryId, setBusyEntryId] = useState<string | null>(null);
   const [notice, setNotice] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
 
+  const handleSignOut = async () => {
+    await fetch("/api/auth/signout", { method: "POST" });
+    router.push("/auth/login");
+    router.refresh();
+  };
+
   const getScore = (entry: JudgeBallotEntry, crit: JudgeCriterion): number => {
     if (entry.locked && entry.savedScores[crit.id] !== undefined) {
       return entry.savedScores[crit.id];
@@ -150,14 +156,13 @@ export function JudgePortalClient({
                   Public Event <ArrowUpRight className="w-3.5 h-3.5" />
                 </Link>
               ) : null}
-              <form action="/api/auth/signout" method="post">
-                <button
-                  type="submit"
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-bold cursor-pointer"
-                >
-                  <LogOut className="w-3.5 h-3.5" /> Sign Out
-                </button>
-              </form>
+              <button
+                type="button"
+                onClick={() => void handleSignOut()}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-bold cursor-pointer"
+              >
+                <LogOut className="w-3.5 h-3.5" /> Sign Out
+              </button>
             </div>
           </div>
 
