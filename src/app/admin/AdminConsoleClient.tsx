@@ -41,11 +41,25 @@ export interface AdminEventFundRow {
   approvalStatus: string;
   votingStatus: string;
   currency: string;
+  commissionBps: number;
   grossCollectedMinor: number;
   baseVotesMinor: number;
   commissionMinor: number;
   pendingEscrowMinor: number;
   availableMinor: number;
+}
+
+export interface AdminSettlementRow {
+  id: string;
+  organizationId: string;
+  orgName: string;
+  amountMinor: number;
+  currency: string;
+  status: string;
+  destinationLabel: string;
+  accountName: string;
+  transferRef: string | null;
+  createdAt: string;
 }
 
 export interface AdminOrgFundRow {
@@ -115,6 +129,7 @@ interface AdminConsoleProps {
   uncreditedOrders: AdminUncreditedOrderRow[];
   categories: AdminCategoryRow[];
   contestants: AdminContestantRow[];
+  settlements: AdminSettlementRow[];
   totals: {
     grossCollectedMinor: number;
     commissionMinor: number;
@@ -134,12 +149,18 @@ export function AdminConsoleClient({
   uncreditedOrders,
   categories,
   contestants,
+  settlements,
   totals,
 }: AdminConsoleProps) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<"treasury" | "contestants" | "approvals" | "refunds">("treasury");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [notice, setNotice] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
+
+  const [commissionInputs, setCommissionInputs] = useState<Record<string, string>>(() =>
+    Object.fromEntries(eventFunds.map((e) => [e.id, (e.commissionBps / 100).toFixed(1)]))
+  );
+  const [transferRefs, setTransferRefs] = useState<Record<string, string>>({});
 
   const [contestantSearch, setContestantSearch] = useState("");
   const [contestantEventFilter, setContestantEventFilter] = useState("all");
@@ -162,6 +183,63 @@ export function AdminConsoleClient({
       c.orgName.toLowerCase().includes(q);
     return matchesEvent && matchesQ;
   });
+
+  const saveEventCommission = async (eventId: string) => {
+    const raw = Number(commissionInputs[eventId]);
+    if (!Number.isFinite(raw) || raw < 0 || raw > 50) {
+      setNotice({ kind: "err", text: "Commission must be between 0% and 50%." });
+      return;
+    }
+    setBusyId(`comm-${eventId}`);
+    setNotice(null);
+    try {
+      const res = await fetch(`/api/v1/admin/events/${eventId}/action`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "set_commission", commissionPct: raw }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setNotice({ kind: "err", text: data?.message || "Could not update commission." });
+        return;
+      }
+      setNotice({ kind: "ok", text: `Updated event commission to ${raw.toFixed(1)}%.` });
+      router.refresh();
+    } catch {
+      setNotice({ kind: "err", text: "Network error updating commission." });
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const processSettlement = async (requestId: string, action: "complete" | "reject") => {
+    setBusyId(`settle-${requestId}`);
+    setNotice(null);
+    try {
+      const res = await fetch(`/api/v1/admin/settlements/${requestId}/process`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action,
+          transferRef: transferRefs[requestId]?.trim() || undefined,
+        }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setNotice({ kind: "err", text: data?.message || "Could not process payout request." });
+        return;
+      }
+      setNotice({
+        kind: "ok",
+        text: action === "complete" ? "Payout marked completed & posted to ledger." : "Payout request rejected.",
+      });
+      router.refresh();
+    } catch {
+      setNotice({ kind: "err", text: "Network error processing payout." });
+    } finally {
+      setBusyId(null);
+    }
+  };
 
   const runEventAction = async (
     eventId: string,
@@ -422,6 +500,7 @@ export function AdminConsoleClient({
                         <th className="py-3 px-3">Event</th>
                         <th className="py-3 px-3">Organization</th>
                         <th className="py-3 px-3">State</th>
+                        <th className="py-3 px-3">Fee %</th>
                         <th className="py-3 px-3">Gross Collected</th>
                         <th className="py-3 px-3">Commission</th>
                         <th className="py-3 px-3">Pending Escrow</th>
@@ -456,6 +535,30 @@ export function AdminConsoleClient({
                               >
                                 {ef.votingStatus}
                               </span>
+                            </td>
+                            <td className="py-3.5 px-3">
+                              <div className="inline-flex items-center gap-1">
+                                <input
+                                  type="number"
+                                  step="0.5"
+                                  min="0"
+                                  max="50"
+                                  aria-label={`Commission percentage for ${ef.eventName}`}
+                                  value={commissionInputs[ef.id] ?? (ef.commissionBps / 100).toFixed(1)}
+                                  onChange={(e) =>
+                                    setCommissionInputs((prev) => ({ ...prev, [ef.id]: e.target.value }))
+                                  }
+                                  className="w-16 px-2 py-1 rounded-lg bg-[#F6F7FC] border border-[#D9DBEA] font-mono text-xs text-[#0E1030]"
+                                />
+                                <button
+                                  type="button"
+                                  disabled={busyId === `comm-${ef.id}`}
+                                  onClick={() => void saveEventCommission(ef.id)}
+                                  className="px-2 py-1 rounded-lg bg-[#E8E5FD] text-[#4B35E0] font-bold hover:bg-[#DBD5FC] disabled:opacity-50 cursor-pointer"
+                                >
+                                  {busyId === `comm-${ef.id}` ? "..." : "Save"}
+                                </button>
+                              </div>
                             </td>
                             <td className="py-3.5 px-3 font-mono">{fmtGhs(ef.grossCollectedMinor, ef.currency)}</td>
                             <td className="py-3.5 px-3 font-mono text-[#4B35E0] font-semibold">
@@ -550,7 +653,7 @@ export function AdminConsoleClient({
                       })}
                       {eventFunds.length === 0 ? (
                         <tr>
-                          <td colSpan={8} className="py-8 text-center text-[#5B5F85]">
+                          <td colSpan={9} className="py-8 text-center text-[#5B5F85]">
                             No events created yet.
                           </td>
                         </tr>
@@ -558,6 +661,91 @@ export function AdminConsoleClient({
                     </tbody>
                   </table>
                 </div>
+              </div>
+
+              <div className="bg-white rounded-2xl border border-[#D9DBEA] p-6 space-y-4 shadow-xs">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#D9DBEA] pb-4">
+                  <div>
+                    <span className="text-xs font-bold uppercase text-[#4B35E0]">Organiser Withdrawals</span>
+                    <h2 className="font-heading font-bold text-lg text-[#0E1030]">
+                      Payout Requests &amp; Settlement Processing
+                    </h2>
+                  </div>
+                  <span className="text-xs font-semibold text-[#5B5F85]">
+                    {settlements.filter((s) => s.status === "requested").length} awaiting payout
+                  </span>
+                </div>
+
+                {settlements.length === 0 ? (
+                  <p className="text-xs text-[#5B5F85]">No organizer payout requests submitted yet.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {settlements.map((sr) => {
+                      const isPending = ["requested", "under_finance_review", "finance_approved", "super_admin_approved"].includes(
+                        sr.status
+                      );
+                      const isSettleBusy = busyId === `settle-${sr.id}`;
+                      return (
+                        <div
+                          key={sr.id}
+                          className="p-4 rounded-2xl bg-[#F6F7FC] border border-[#D9DBEA] flex flex-col lg:flex-row lg:items-center justify-between gap-4 text-xs"
+                        >
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <strong className="text-sm text-[#0E1030]">{sr.orgName}</strong>
+                              <span
+                                className={`px-2 py-0.5 rounded-full font-bold text-[10px] uppercase ${
+                                  sr.status === "completed"
+                                    ? "bg-[#E6F8F0] text-[#0F9D6B]"
+                                    : sr.status === "rejected"
+                                    ? "bg-[#D13A3A]/10 text-[#D13A3A]"
+                                    : "bg-[#FDF3D6] text-[#C77700]"
+                                }`}
+                              >
+                                {sr.status}
+                              </span>
+                            </div>
+                            <p className="text-[#5B5F85] mt-1">
+                              Amount: <strong className="font-mono text-[#0E1030]">{fmtGhs(sr.amountMinor, sr.currency)}</strong> ·{" "}
+                              {sr.destinationLabel} ({sr.accountName})
+                              {sr.transferRef ? ` · Ref: ${sr.transferRef}` : ""}
+                            </p>
+                          </div>
+
+                          {isPending ? (
+                            <div className="flex flex-wrap items-center gap-2">
+                              <input
+                                type="text"
+                                value={transferRefs[sr.id] ?? ""}
+                                onChange={(e) =>
+                                  setTransferRefs((prev) => ({ ...prev, [sr.id]: e.target.value }))
+                                }
+                                placeholder="Transfer Ref (optional)"
+                                className="px-3 py-1.5 rounded-xl bg-white border border-[#D9DBEA] text-xs text-[#0E1030]"
+                              />
+                              <button
+                                type="button"
+                                disabled={isSettleBusy}
+                                onClick={() => void processSettlement(sr.id, "complete")}
+                                className="px-3 py-1.5 rounded-xl bg-[#0F9D6B] text-white font-bold hover:bg-[#0C8258] disabled:opacity-50 cursor-pointer"
+                              >
+                                {isSettleBusy ? "Processing..." : "Approve & Mark Paid"}
+                              </button>
+                              <button
+                                type="button"
+                                disabled={isSettleBusy}
+                                onClick={() => void processSettlement(sr.id, "reject")}
+                                className="px-3 py-1.5 rounded-xl border border-[#D13A3A]/30 text-[#D13A3A] font-bold hover:bg-[#D13A3A]/10 disabled:opacity-50 cursor-pointer"
+                              >
+                                Reject
+                              </button>
+                            </div>
+                          ) : null}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
               <div className="bg-white rounded-2xl border border-[#D9DBEA] p-6 space-y-4 shadow-xs">

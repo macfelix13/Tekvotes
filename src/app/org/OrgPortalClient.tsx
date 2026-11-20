@@ -75,12 +75,24 @@ export interface OrgContestantRow {
   votes: number;
 }
 
+export interface OrgSettlementRow {
+  id: string;
+  amountMinor: number;
+  currency: string;
+  status: string;
+  destinationLabel: string;
+  accountName: string;
+  transferRef: string | null;
+  createdAt: string;
+}
+
 interface OrgPortalProps {
   userEmail: string;
   org: OrgMembership;
   events: OrgEventRow[];
   categories: OrgCategoryRow[];
   contestants: OrgContestantRow[];
+  settlements: OrgSettlementRow[];
   totals: {
     totalVotes: number;
     pendingEscrowMinor: number;
@@ -98,6 +110,7 @@ export function OrgPortalClient({
   events,
   categories,
   contestants,
+  settlements,
   totals,
 }: OrgPortalProps) {
   const router = useRouter();
@@ -124,6 +137,21 @@ export function OrgPortalClient({
   const [catEventId, setCatEventId] = useState(events[0]?.id ?? "");
   const [catName, setCatName] = useState("");
   const [catPriceGhs, setCatPriceGhs] = useState("1.00");
+
+  // Payout request form state
+  const pendingReservedMinor = settlements
+    .filter((s) =>
+      ["requested", "under_finance_review", "finance_approved", "super_admin_approved", "payout_initiated", "payout_processing"].includes(s.status)
+    )
+    .reduce((acc, s) => acc + s.amountMinor, 0);
+  const requestableMinor = Math.max(0, totals.availableMinor - pendingReservedMinor);
+  const [payoutAmountGhs, setPayoutAmountGhs] = useState(() =>
+    requestableMinor > 0 ? (requestableMinor / 100).toFixed(2) : ""
+  );
+  const [payoutType, setPayoutType] = useState<"mobile_money" | "bank">("mobile_money");
+  const [payoutProvider, setPayoutProvider] = useState("MTN MoMo");
+  const [payoutAccountNumber, setPayoutAccountNumber] = useState("");
+  const [payoutAccountName, setPayoutAccountName] = useState("");
 
   // Leaderboard visibility editor state
   const [editCatId, setEditCatId] = useState(categories[0]?.id ?? "");
@@ -197,6 +225,39 @@ export function OrgPortalClient({
       router.refresh();
     } catch {
       setNotice({ kind: "err", text: "Network error creating event." });
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const handleRequestPayout = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setBusyId("request-payout");
+    setNotice(null);
+    try {
+      const res = await fetch("/api/v1/org/settlements", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          organizationId: org.id,
+          amountGhs: Number(payoutAmountGhs),
+          destinationType: payoutType,
+          provider: payoutProvider.trim(),
+          accountNumber: payoutAccountNumber.trim(),
+          accountName: payoutAccountName.trim(),
+        }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setNotice({ kind: "err", text: data?.message || "Failed to submit payout request." });
+        return;
+      }
+      setPayoutAccountNumber("");
+      setPayoutAccountName("");
+      setNotice({ kind: "ok", text: "Payout request submitted to Super Admin for settlement." });
+      router.refresh();
+    } catch {
+      setNotice({ kind: "err", text: "Network error submitting payout request." });
     } finally {
       setBusyId(null);
     }
@@ -756,6 +817,144 @@ export function OrgPortalClient({
                     </div>
                   </div>
                 ))}
+              </div>
+
+              <div className="grid lg:grid-cols-12 gap-6 pt-4 border-t border-[#D9DBEA]">
+                <div className="lg:col-span-5 bg-[#F6F7FC] rounded-2xl border border-[#D9DBEA] p-5 space-y-4">
+                  <div>
+                    <span className="text-[11px] font-bold uppercase text-[#4B35E0]">Post-Close Withdrawal</span>
+                    <h3 className="font-heading font-bold text-base text-[#0E1030]">Request Payout (MoMo / Bank)</h3>
+                    <p className="text-xs text-[#5B5F85] mt-0.5">
+                      Available to request:{" "}
+                      <strong className="text-[#0F9D6B]">{fmtGhs(requestableMinor, org.defaultCurrency)}</strong>
+                    </p>
+                  </div>
+
+                  <form onSubmit={handleRequestPayout} className="space-y-3 text-xs">
+                    <div className="grid grid-cols-2 gap-2">
+                      {(["mobile_money", "bank"] as const).map((t) => (
+                        <button
+                          key={t}
+                          type="button"
+                          onClick={() => {
+                            setPayoutType(t);
+                            setPayoutProvider(t === "mobile_money" ? "MTN MoMo" : "GCB Bank");
+                          }}
+                          className={`py-2 px-3 rounded-xl font-bold border cursor-pointer ${
+                            payoutType === t
+                              ? "bg-[#4B35E0] text-white border-[#4B35E0]"
+                              : "bg-white text-[#5B5F85] border-[#D9DBEA]"
+                          }`}
+                        >
+                          {t === "mobile_money" ? "Mobile Money" : "Bank Transfer"}
+                        </button>
+                      ))}
+                    </div>
+
+                    <div className="grid sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block font-bold text-[#5B5F85] uppercase mb-1">
+                          {payoutType === "mobile_money" ? "Network *" : "Bank Name *"}
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={payoutProvider}
+                          onChange={(e) => setPayoutProvider(e.target.value)}
+                          placeholder={payoutType === "mobile_money" ? "MTN MoMo / Telecel" : "GCB Bank / Ecobank"}
+                          className="w-full px-3 py-2 rounded-xl bg-white border border-[#D9DBEA] text-[#0E1030]"
+                        />
+                      </div>
+                      <div>
+                        <label className="block font-bold text-[#5B5F85] uppercase mb-1">
+                          Amount ({org.defaultCurrency}) *
+                        </label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0.01"
+                          required
+                          value={payoutAmountGhs}
+                          onChange={(e) => setPayoutAmountGhs(e.target.value)}
+                          placeholder="0.00"
+                          className="w-full px-3 py-2 rounded-xl bg-white border border-[#D9DBEA] font-mono font-bold text-[#0E1030]"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block font-bold text-[#5B5F85] uppercase mb-1">
+                          {payoutType === "mobile_money" ? "MoMo Number *" : "Account Number *"}
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={payoutAccountNumber}
+                          onChange={(e) => setPayoutAccountNumber(e.target.value)}
+                          placeholder={payoutType === "mobile_money" ? "0241234567" : "101112131415"}
+                          className="w-full px-3 py-2 rounded-xl bg-white border border-[#D9DBEA] text-[#0E1030]"
+                        />
+                      </div>
+                      <div>
+                        <label className="block font-bold text-[#5B5F85] uppercase mb-1">Account Name *</label>
+                        <input
+                          type="text"
+                          required
+                          value={payoutAccountName}
+                          onChange={(e) => setPayoutAccountName(e.target.value)}
+                          placeholder="Registered Name"
+                          className="w-full px-3 py-2 rounded-xl bg-white border border-[#D9DBEA] text-[#0E1030]"
+                        />
+                      </div>
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={busyId === "request-payout" || requestableMinor <= 0}
+                      className="w-full py-2.5 rounded-xl bg-[#4B35E0] text-white font-bold hover:bg-[#3B28B8] disabled:opacity-50 cursor-pointer"
+                    >
+                      {busyId === "request-payout" ? "Submitting..." : "Submit Payout Request"}
+                    </button>
+                  </form>
+                </div>
+
+                <div className="lg:col-span-7 bg-[#F6F7FC] rounded-2xl border border-[#D9DBEA] p-5 space-y-3">
+                  <h3 className="font-heading font-bold text-base text-[#0E1030]">Payout Request History</h3>
+                  {settlements.length === 0 ? (
+                    <p className="text-xs text-[#5B5F85]">No payout requests submitted yet.</p>
+                  ) : (
+                    <div className="space-y-2.5">
+                      {settlements.map((sr) => (
+                        <div
+                          key={sr.id}
+                          className="p-3.5 rounded-xl bg-white border border-[#D9DBEA] flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs"
+                        >
+                          <div>
+                            <div className="font-bold text-[#0E1030]">
+                              {fmtGhs(sr.amountMinor, sr.currency)} · {sr.destinationLabel}
+                            </div>
+                            <div className="text-[11px] text-[#5B5F85]">
+                              {sr.accountName} · {sr.createdAt.slice(0, 10)}
+                              {sr.transferRef ? ` · Ref: ${sr.transferRef}` : ""}
+                            </div>
+                          </div>
+                          <span
+                            className={`px-2.5 py-1 rounded-full font-bold text-[11px] uppercase w-fit ${
+                              sr.status === "completed"
+                                ? "bg-[#E6F8F0] text-[#0F9D6B]"
+                                : sr.status === "rejected"
+                                ? "bg-[#D13A3A]/10 text-[#D13A3A]"
+                                : "bg-[#FDF3D6] text-[#C77700]"
+                            }`}
+                          >
+                            {sr.status}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           )}

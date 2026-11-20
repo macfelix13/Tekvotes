@@ -8,6 +8,7 @@ import {
   type OrgCategoryRow,
   type OrgContestantRow,
   type OrgEventRow,
+  type OrgSettlementRow,
 } from "./OrgPortalClient";
 import { Building2 } from "lucide-react";
 
@@ -85,7 +86,7 @@ export default async function OrganiserPortalPage() {
       </div>
     );
   }
-  const [{ data: evRows }, { data: catRows }, { data: fundRows }, { data: ceRows }, { data: socialRows }] =
+  const [{ data: evRows }, { data: catRows }, { data: fundRows }, { data: ceRows }, { data: socialRows }, { data: settleReqRows }] =
     await Promise.all([
       admin
         .from("events")
@@ -109,6 +110,12 @@ export default async function OrganiserPortalPage() {
         .select("contestant_id, platform, url")
         .eq("organization_id", activeOrg.id)
         .order("sort_order"),
+      admin
+        .schema("fin")
+        .from("settlement_requests")
+        .select("id, amount_minor, currency, status, created_at, settlement_destinations(masked_account, account_name), settlements(provider_transfer_ref, completed_at)")
+        .eq("organization_id", activeOrg.id)
+        .order("created_at", { ascending: false }),
     ]);
 
   const fundByEvent = new Map((fundRows ?? []).map((f) => [f.event_id as string, f]));
@@ -202,6 +209,26 @@ export default async function OrganiserPortalPage() {
     inFlightMinor: (fundRows ?? []).reduce((acc, f) => acc + Number(f.in_flight_settlement_minor ?? 0), 0),
   };
 
+  type DestEmbed = { masked_account: string; account_name: string } | { masked_account: string; account_name: string }[] | null;
+  type SettleEmbed = { provider_transfer_ref: string | null; completed_at: string | null } | { provider_transfer_ref: string | null; completed_at: string | null }[] | null;
+
+  const settlements: OrgSettlementRow[] = (settleReqRows ?? []).map((sr) => {
+    const dRaw = sr.settlement_destinations as DestEmbed;
+    const sRaw = sr.settlements as SettleEmbed;
+    const d = Array.isArray(dRaw) ? dRaw[0] : dRaw;
+    const s = Array.isArray(sRaw) ? sRaw[0] : sRaw;
+    return {
+      id: sr.id,
+      amountMinor: Number(sr.amount_minor),
+      currency: sr.currency,
+      status: sr.status,
+      destinationLabel: d?.masked_account ?? "Destination",
+      accountName: d?.account_name ?? "",
+      transferRef: s?.provider_transfer_ref ?? null,
+      createdAt: sr.created_at,
+    };
+  });
+
   return (
     <OrgPortalClient
       userEmail={user.email ?? ""}
@@ -209,6 +236,7 @@ export default async function OrganiserPortalPage() {
       events={events}
       categories={categories}
       contestants={contestants}
+      settlements={settlements}
       totals={totals}
     />
   );

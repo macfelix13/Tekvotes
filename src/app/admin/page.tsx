@@ -10,6 +10,7 @@ import {
   type AdminContestantRow,
   type AdminEventFundRow,
   type AdminOrgFundRow,
+  type AdminSettlementRow,
   type AdminUncreditedOrderRow,
 } from "./AdminConsoleClient";
 import { ShieldAlert } from "lucide-react";
@@ -66,11 +67,12 @@ export default async function SuperAdminPage() {
     { data: catRows },
     { data: ceRows },
     { data: socialRows },
+    { data: settleReqRows },
   ] = await Promise.all([
     admin.from("v_event_funds").select("*"),
     admin
       .from("events")
-      .select("id, slug, public_code, name, organization_id, approval_status, voting_status, currency, organizations(name)")
+      .select("id, slug, public_code, name, organization_id, approval_status, voting_status, currency, commission_bps, organizations(name)")
       .order("created_at", { ascending: false }),
     admin.from("v_org_funds").select("*"),
     admin
@@ -94,6 +96,11 @@ export default async function SuperAdminPage() {
       )
       .order("created_at", { ascending: false }),
     admin.from("contestant_social_links").select("contestant_id, platform, url").order("sort_order"),
+    admin
+      .schema("fin")
+      .from("settlement_requests")
+      .select("id, organization_id, amount_minor, currency, status, created_at, settlement_destinations(masked_account, account_name), settlements(provider_transfer_ref)")
+      .order("created_at", { ascending: false }),
   ]);
 
   const fundByEventId = new Map((eventFundRows ?? []).map((f) => [f.event_id as string, f]));
@@ -142,6 +149,7 @@ export default async function SuperAdminPage() {
       approvalStatus: ev.approval_status,
       votingStatus: ev.voting_status,
       currency: ev.currency,
+      commissionBps: Number(ev.commission_bps ?? 1000),
       grossCollectedMinor: ord.gross,
       baseVotesMinor: ord.base,
       commissionMinor: ord.comm,
@@ -252,6 +260,29 @@ export default async function SuperAdminPage() {
     };
   });
 
+  const orgNameById = new Map((orgFundRows ?? []).map((o) => [o.organization_id as string, o.organization_name as string]));
+  type DestEmbed = { masked_account: string; account_name: string } | { masked_account: string; account_name: string }[] | null;
+  type SettleEmbed = { provider_transfer_ref: string | null } | { provider_transfer_ref: string | null }[] | null;
+
+  const settlements: AdminSettlementRow[] = (settleReqRows ?? []).map((sr) => {
+    const dRaw = sr.settlement_destinations as DestEmbed;
+    const sRaw = sr.settlements as SettleEmbed;
+    const d = Array.isArray(dRaw) ? dRaw[0] : dRaw;
+    const s = Array.isArray(sRaw) ? sRaw[0] : sRaw;
+    return {
+      id: sr.id,
+      organizationId: sr.organization_id,
+      orgName: orgNameById.get(sr.organization_id) ?? "Organization",
+      amountMinor: Number(sr.amount_minor),
+      currency: sr.currency,
+      status: sr.status,
+      destinationLabel: d?.masked_account ?? "Destination",
+      accountName: d?.account_name ?? "",
+      transferRef: s?.provider_transfer_ref ?? null,
+      createdAt: sr.created_at,
+    };
+  });
+
   const totals = {
     grossCollectedMinor: eventFunds.reduce((acc, e) => acc + e.grossCollectedMinor, 0),
     commissionMinor: eventFunds.reduce((acc, e) => acc + e.commissionMinor, 0),
@@ -268,6 +299,7 @@ export default async function SuperAdminPage() {
       uncreditedOrders={uncreditedOrders}
       categories={categories}
       contestants={contestants}
+      settlements={settlements}
       totals={totals}
     />
   );

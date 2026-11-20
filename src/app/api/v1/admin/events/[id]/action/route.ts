@@ -4,8 +4,9 @@ import { requireApiSuperAdmin } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/server";
 
 const ActionSchema = z.object({
-  action: z.enum(["approve", "revoke", "open_voting", "pause", "resume", "close", "release_funds"]),
+  action: z.enum(["approve", "revoke", "open_voting", "pause", "resume", "close", "release_funds", "set_commission"]),
   reason: z.string().trim().optional(),
+  commissionPct: z.number().min(0).max(50).optional(),
 });
 
 export async function POST(
@@ -29,7 +30,7 @@ export async function POST(
     );
   }
 
-  const { action, reason } = parsed.data;
+  const { action, reason, commissionPct } = parsed.data;
   const admin = createAdminClient();
 
   const { data: ev, error: evErr } = await admin
@@ -40,6 +41,22 @@ export async function POST(
 
   if (evErr || !ev) {
     return NextResponse.json({ error: "NOT_FOUND", message: "Event not found." }, { status: 404 });
+  }
+
+  if (action === "set_commission") {
+    if (commissionPct === undefined || !Number.isFinite(commissionPct)) {
+      return NextResponse.json(
+        { error: "VALIDATION_ERROR", message: "Provide a valid commission percentage (0% to 50%)." },
+        { status: 400 }
+      );
+    }
+    const bps = Math.round(commissionPct * 100);
+    const { error: commErr } = await admin
+      .from("events")
+      .update({ commission_bps: bps })
+      .eq("id", id);
+    if (commErr) return NextResponse.json({ error: "ACTION_FAILED", message: commErr.message }, { status: 400 });
+    return NextResponse.json({ ok: true, action, commissionBps: bps });
   }
 
   if (action === "approve") {
