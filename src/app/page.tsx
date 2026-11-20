@@ -253,11 +253,21 @@ export default async function HomePage() {
                   >
                     {/* Poster Header */}
                     <div className="relative aspect-[4/3] w-full bg-[#0E1030] overflow-hidden flex items-end p-4">
-                      <span className="font-heading font-extrabold text-white/90 text-xl leading-tight line-clamp-2">
+                      {event.bannerUrl ? (
+                        <>
+                          <img
+                            src={event.bannerUrl}
+                            alt={event.name}
+                            className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-[#0E1030]/90 via-[#0E1030]/35 to-transparent" />
+                        </>
+                      ) : null}
+                      <span className="relative z-10 font-heading font-extrabold text-white/95 text-xl leading-tight line-clamp-2">
                         {event.name}
                       </span>
                       <span
-                        className={`absolute top-3 left-3 text-[11px] font-bold text-white px-2.5 py-1 rounded-full ${badge.color} shadow-xs`}
+                        className={`relative z-10 absolute top-3 left-3 text-[11px] font-bold text-white px-2.5 py-1 rounded-full ${badge.color} shadow-xs`}
                       >
                         {badge.label}
                       </span>

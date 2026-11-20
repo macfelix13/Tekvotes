@@ -6,6 +6,10 @@ import { useRouter } from "next/navigation";
 import { Navbar } from "@/components/navigation/Navbar";
 import type { OrgMembership } from "@/lib/auth";
 import {
+  ContestantProfileModal,
+  type EditableContestantProfile,
+} from "@/components/admin/ContestantProfileModal";
+import {
   Trophy,
   Users,
   Wallet,
@@ -21,10 +25,14 @@ import {
   Send,
   AlertCircle,
   Loader2,
+  Upload,
+  Pencil,
+  User,
 } from "lucide-react";
 
 export interface OrgEventRow {
   id: string;
+  organizationId: string;
   slug: string;
   name: string;
   code: string;
@@ -49,8 +57,16 @@ export interface OrgCategoryRow {
 
 export interface OrgContestantRow {
   categoryEntryId: string;
+  contestantId: string;
+  organizationId: string;
   code: string;
   name: string;
+  gender: string;
+  bio: string;
+  photoUrl: string;
+  instagramUrl: string;
+  tiktokUrl: string;
+  facebookUrl: string;
   eventName: string;
   categoryName: string;
   status: string;
@@ -94,15 +110,12 @@ export function OrgPortalClient({
   const [newEventType, setNewEventType] = useState<"beauty_pageant" | "award_show" | "talent_show" | "campus_contest" | "other">("beauty_pageant");
   const [newCategoryName, setNewCategoryName] = useState("Main Category");
   const [newEventPrice, setNewEventPrice] = useState("1.00");
+  const [newBannerUrl, setNewBannerUrl] = useState("");
+  const [uploadingBanner, setUploadingBanner] = useState(false);
 
-  // Add Contestant modal state
-  const [showNewContestantModal, setShowNewContestantModal] = useState(false);
-  const [selectedEventId, setSelectedEventId] = useState(events[0]?.id ?? "");
-  const [selectedCategoryId, setSelectedCategoryId] = useState(
-    categories.find((c) => c.eventId === (events[0]?.id ?? ""))?.id ?? categories[0]?.id ?? ""
-  );
-  const [newContestantName, setNewContestantName] = useState("");
-  const [newContestantCode, setNewContestantCode] = useState("");
+  // Contestant profile modal state (create or edit)
+  const [profileModalOpen, setProfileModalOpen] = useState(false);
+  const [editingProfile, setEditingProfile] = useState<EditableContestantProfile | null>(null);
 
   // Leaderboard visibility editor state
   const [editCatId, setEditCatId] = useState(categories[0]?.id ?? "");
@@ -116,6 +129,32 @@ export function OrgPortalClient({
     if (cat) {
       setVisState(cat.resultsState);
       setVisMode(cat.liveVisibility);
+    }
+  };
+
+  const handleBannerUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingBanner(true);
+    setNotice(null);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      form.append("bucket", "event-media");
+      form.append("organizationId", org.id);
+
+      const res = await fetch("/api/v1/media/upload", { method: "POST", body: form });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.publicUrl) {
+        setNotice({ kind: "err", text: data?.message || "Failed to upload event banner." });
+        return;
+      }
+      setNewBannerUrl(data.publicUrl as string);
+    } catch {
+      setNotice({ kind: "err", text: "Network error uploading event banner." });
+    } finally {
+      setUploadingBanner(false);
+      e.target.value = "";
     }
   };
 
@@ -134,6 +173,7 @@ export function OrgPortalClient({
           eventType: newEventType,
           categoryName: newCategoryName.trim() || "Main Category",
           unitPriceGhs: Number(newEventPrice) || 1,
+          bannerUrl: newBannerUrl.trim(),
         }),
       });
       const data = await res.json().catch(() => null);
@@ -144,6 +184,7 @@ export function OrgPortalClient({
       setShowNewEventModal(false);
       setNewEventName("");
       setNewEventCode("");
+      setNewBannerUrl("");
       setNotice({ kind: "ok", text: `Created event "${data.event.name}" (${data.event.public_code}).` });
       router.refresh();
     } catch {
@@ -153,40 +194,27 @@ export function OrgPortalClient({
     }
   };
 
-  const handleAddContestant = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setBusyId("create-contestant");
-    setNotice(null);
-    try {
-      const res = await fetch("/api/v1/org/contestants", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          organizationId: org.id,
-          eventId: selectedEventId,
-          categoryId: selectedCategoryId,
-          displayName: newContestantName.trim(),
-          publicCode: newContestantCode.trim(),
-        }),
-      });
-      const data = await res.json().catch(() => null);
-      if (!res.ok) {
-        setNotice({ kind: "err", text: data?.message || "Failed to register contestant." });
-        return;
-      }
-      setShowNewContestantModal(false);
-      setNewContestantName("");
-      setNewContestantCode("");
-      setNotice({
-        kind: "ok",
-        text: `Added contestant ${data.contestant.display_name} (${data.entry.public_code}).`,
-      });
-      router.refresh();
-    } catch {
-      setNotice({ kind: "err", text: "Network error adding contestant." });
-    } finally {
-      setBusyId(null);
-    }
+  const openCreateProfile = () => {
+    setEditingProfile(null);
+    setProfileModalOpen(true);
+  };
+
+  const openEditProfile = (c: OrgContestantRow) => {
+    setEditingProfile({
+      contestantId: c.contestantId,
+      organizationId: c.organizationId,
+      eventName: c.eventName,
+      categoryName: c.categoryName,
+      code: c.code,
+      displayName: c.name,
+      gender: c.gender,
+      bio: c.bio,
+      photoUrl: c.photoUrl,
+      instagramUrl: c.instagramUrl,
+      tiktokUrl: c.tiktokUrl,
+      facebookUrl: c.facebookUrl,
+    });
+    setProfileModalOpen(true);
   };
 
   const handleSubmitForApproval = async (eventId: string) => {
@@ -242,8 +270,6 @@ export function OrgPortalClient({
     router.refresh();
   };
 
-  const categoriesForSelectedEvent = categories.filter((c) => c.eventId === selectedEventId);
-
   return (
     <div className="min-h-screen flex flex-col bg-[#F6F7FC]">
       <Navbar />
@@ -259,7 +285,7 @@ export function OrgPortalClient({
                 {org.name} — Organiser Portal
               </h1>
               <p className="text-xs sm:text-sm text-white/75 max-w-2xl">
-                Create events, register contestants with short codes, manage leaderboard visibility, and track escrowed &amp; post-close balances.
+                Create events, build contestant profiles with portraits &amp; short codes, manage leaderboard visibility, and track escrowed &amp; post-close balances.
               </p>
             </div>
 
@@ -343,7 +369,7 @@ export function OrgPortalClient({
                 {events.length}
               </div>
               <span className="text-[11px] text-[#5B5F85] mt-1 block">
-                {contestants.length} registered entries
+                {contestants.length} registered profiles
               </span>
             </div>
           </div>
@@ -352,7 +378,7 @@ export function OrgPortalClient({
             {(
               [
                 { id: "events", label: `Events & Visibility (${events.length})`, Icon: Trophy },
-                { id: "contestants", label: `Contestants & Short Codes (${contestants.length})`, Icon: Users },
+                { id: "contestants", label: `Contestants & Profiles (${contestants.length})`, Icon: Users },
                 { id: "funds", label: "Event Funds & Post-Close Payouts", Icon: Wallet },
               ] as const
             ).map(({ id, label, Icon }) => (
@@ -533,22 +559,22 @@ export function OrgPortalClient({
 
           {activeTab === "contestants" && (
             <div className="bg-white rounded-2xl border border-[#D9DBEA] p-6 space-y-4">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
                   <h2 className="font-heading font-bold text-lg text-[#0E1030]">
-                    Contestant Entries &amp; Short Codes
+                    Contestant Profiles &amp; Short Codes
                   </h2>
                   <p className="text-xs text-[#5B5F85]">
-                    Every registered contestant receives a unique short code for instant voter lookup.
+                    Upload portrait photos, manage bios &amp; social links, and assign short codes.
                   </p>
                 </div>
                 <button
                   type="button"
                   disabled={events.length === 0}
-                  onClick={() => setShowNewContestantModal(true)}
-                  className="px-4 py-2 rounded-xl bg-[#4B35E0] text-white text-xs font-bold hover:bg-[#3B28B8] disabled:opacity-50 cursor-pointer"
+                  onClick={openCreateProfile}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#4B35E0] text-white text-xs font-bold hover:bg-[#3B28B8] disabled:opacity-50 cursor-pointer"
                 >
-                  + Add Contestant
+                  <Plus className="w-3.5 h-3.5" /> Add Contestant Profile
                 </button>
               </div>
 
@@ -556,21 +582,43 @@ export function OrgPortalClient({
                 <table className="w-full text-left border-collapse text-xs">
                   <thead>
                     <tr className="border-b border-[#D9DBEA] text-[#5B5F85] uppercase">
+                      <th className="py-3 px-4">Profile</th>
                       <th className="py-3 px-4">Short Code</th>
-                      <th className="py-3 px-4">Contestant Name</th>
-                      <th className="py-3 px-4">Event</th>
-                      <th className="py-3 px-4">Category</th>
+                      <th className="py-3 px-4">Event &amp; Category</th>
                       <th className="py-3 px-4">Status</th>
-                      <th className="py-3 px-4 text-right">Verified Votes</th>
+                      <th className="py-3 px-4 text-right">Votes</th>
+                      <th className="py-3 px-4 text-right">Action</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#D9DBEA]">
                     {contestants.map((c) => (
                       <tr key={c.categoryEntryId} className="hover:bg-[#F6F7FC]">
+                        <td className="py-3 px-4">
+                          <div className="flex items-center gap-3">
+                            {c.photoUrl ? (
+                              <img
+                                src={c.photoUrl}
+                                alt={c.name}
+                                className="w-10 h-10 rounded-xl object-cover border border-[#D9DBEA] shrink-0"
+                              />
+                            ) : (
+                              <div className="w-10 h-10 rounded-xl bg-[#0E1030] text-white flex items-center justify-center shrink-0">
+                                <User className="w-4 h-4 text-white/70" />
+                              </div>
+                            )}
+                            <div>
+                              <div className="font-bold text-[#0E1030]">{c.name}</div>
+                              {c.bio ? (
+                                <p className="text-[11px] text-[#5B5F85] line-clamp-1 max-w-xs">{c.bio}</p>
+                              ) : null}
+                            </div>
+                          </div>
+                        </td>
                         <td className="py-3 px-4 font-mono font-bold text-[#4B35E0]">{c.code}</td>
-                        <td className="py-3 px-4 font-bold text-[#0E1030]">{c.name}</td>
-                        <td className="py-3 px-4 text-[#5B5F85]">{c.eventName}</td>
-                        <td className="py-3 px-4 text-[#5B5F85]">{c.categoryName}</td>
+                        <td className="py-3 px-4">
+                          <div className="font-semibold text-[#0E1030]">{c.eventName}</div>
+                          <div className="text-[11px] text-[#5B5F85]">{c.categoryName}</div>
+                        </td>
                         <td className="py-3 px-4">
                           <span className="px-2 py-0.5 rounded-full bg-[#E6F8F0] text-[#0F9D6B] font-bold">
                             {c.status}
@@ -578,6 +626,15 @@ export function OrgPortalClient({
                         </td>
                         <td className="py-3 px-4 text-right font-mono font-bold text-[#0E1030]">
                           {c.votes.toLocaleString()}
+                        </td>
+                        <td className="py-3 px-4 text-right">
+                          <button
+                            type="button"
+                            onClick={() => openEditProfile(c)}
+                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-[#D9DBEA] bg-white text-[#0E1030] font-semibold hover:border-[#4B35E0] hover:text-[#4B35E0] cursor-pointer"
+                          >
+                            <Pencil className="w-3 h-3" /> Edit Profile
+                          </button>
                         </td>
                       </tr>
                     ))}
@@ -722,9 +779,33 @@ export function OrgPortalClient({
                   />
                 </div>
               </div>
+
+              <div className="p-3 rounded-xl bg-[#F6F7FC] border border-[#D9DBEA] flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  {newBannerUrl ? (
+                    <img src={newBannerUrl} alt="Event banner preview" className="w-16 h-10 rounded-lg object-cover border border-[#D9DBEA]" />
+                  ) : null}
+                  <div>
+                    <span className="block font-bold text-[#0E1030]">Event Cover Banner (Optional)</span>
+                    <span className="text-[11px] text-[#5B5F85]">JPEG / PNG / WebP up to 4 MB</span>
+                  </div>
+                </div>
+                <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#4B35E0] text-white font-bold hover:bg-[#3B28B8] cursor-pointer shrink-0">
+                  {uploadingBanner ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
+                  <span>{uploadingBanner ? "Uploading..." : newBannerUrl ? "Replace" : "Upload"}</span>
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    disabled={uploadingBanner}
+                    onChange={handleBannerUpload}
+                    className="sr-only"
+                  />
+                </label>
+              </div>
+
               <button
                 type="submit"
-                disabled={busyId === "create-event"}
+                disabled={busyId === "create-event" || uploadingBanner}
                 className="w-full py-3 rounded-xl bg-[#4B35E0] text-white font-bold text-sm hover:bg-[#3B28B8] disabled:opacity-50 cursor-pointer"
               >
                 {busyId === "create-event" ? "Creating Event..." : "Publish Event Preview"}
@@ -734,81 +815,31 @@ export function OrgPortalClient({
         </div>
       )}
 
-      {showNewContestantModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 border border-[#D9DBEA] shadow-2xl space-y-5">
-            <div className="flex items-center justify-between">
-              <h3 className="font-heading font-extrabold text-xl text-[#0E1030]">Register Contestant</h3>
-              <button type="button" onClick={() => setShowNewContestantModal(false)} className="p-1.5 rounded-full hover:bg-[#F6F7FC]">
-                <X className="w-5 h-5 text-[#5B5F85]" />
-              </button>
-            </div>
-            <form onSubmit={handleAddContestant} className="space-y-4 text-xs">
-              <div>
-                <label className="block font-bold text-[#5B5F85] uppercase mb-1">Event *</label>
-                <select
-                  value={selectedEventId}
-                  onChange={(e) => {
-                    const evId = e.target.value;
-                    setSelectedEventId(evId);
-                    const firstCat = categories.find((c) => c.eventId === evId);
-                    if (firstCat) setSelectedCategoryId(firstCat.id);
-                  }}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#F6F7FC] border border-[#D9DBEA] text-sm text-[#0E1030]"
-                >
-                  {events.map((ev) => (
-                    <option key={ev.id} value={ev.id}>
-                      {ev.name} ({ev.code})
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block font-bold text-[#5B5F85] uppercase mb-1">Category *</label>
-                <select
-                  value={selectedCategoryId}
-                  onChange={(e) => setSelectedCategoryId(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#F6F7FC] border border-[#D9DBEA] text-sm text-[#0E1030]"
-                >
-                  {categoriesForSelectedEvent.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block font-bold text-[#5B5F85] uppercase mb-1">Contestant Name *</label>
-                <input
-                  type="text"
-                  required
-                  value={newContestantName}
-                  onChange={(e) => setNewContestantName(e.target.value)}
-                  placeholder="e.g. Efua Mensah"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#F6F7FC] border border-[#D9DBEA] text-sm text-[#0E1030]"
-                />
-              </div>
-              <div>
-                <label className="block font-bold text-[#5B5F85] uppercase mb-1">Short Code *</label>
-                <input
-                  type="text"
-                  required
-                  value={newContestantCode}
-                  onChange={(e) => setNewContestantCode(e.target.value)}
-                  placeholder="e.g. DPG26-07"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#F6F7FC] border border-[#D9DBEA] text-sm font-mono text-[#0E1030]"
-                />
-              </div>
-              <button
-                type="submit"
-                disabled={busyId === "create-contestant"}
-                className="w-full py-3 rounded-xl bg-[#4B35E0] text-white font-bold text-sm hover:bg-[#3B28B8] disabled:opacity-50 cursor-pointer"
-              >
-                {busyId === "create-contestant" ? "Registering..." : "Add to Competition"}
-              </button>
-            </form>
-          </div>
-        </div>
+      {profileModalOpen && (
+        <ContestantProfileModal
+          events={events.map((e) => ({
+            id: e.id,
+            organizationId: e.organizationId,
+            name: e.name,
+            code: e.code,
+          }))}
+          categories={categories.map((c) => ({
+            id: c.id,
+            eventId: c.eventId,
+            name: c.name,
+          }))}
+          editing={editingProfile}
+          onClose={() => {
+            setProfileModalOpen(false);
+            setEditingProfile(null);
+          }}
+          onSaved={(msg) => {
+            setProfileModalOpen(false);
+            setEditingProfile(null);
+            setNotice({ kind: "ok", text: msg });
+            router.refresh();
+          }}
+        />
       )}
     </div>
   );

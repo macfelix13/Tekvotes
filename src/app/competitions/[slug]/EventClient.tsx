@@ -20,7 +20,10 @@ const formatDate = (iso: string | null) =>
     ? new Date(iso).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric", timeZone: "Africa/Accra" })
     : "TBA";
 
-function Avatar({ name, className }: { name: string; className: string }) {
+function Portrait({ name, photoUrl, className }: { name: string; photoUrl: string | null; className: string }) {
+  if (photoUrl) {
+    return <img src={photoUrl} alt={name} className={`object-cover ${className}`} />;
+  }
   return (
     <div aria-hidden className={`bg-[#0E1030] text-white font-heading font-bold flex items-center justify-center ${className}`}>
       {initials(name)}
@@ -55,7 +58,14 @@ export function EventClient({ event }: { event: PublicEventDetail }) {
   );
 
   const drawerContestant: Contestant | null = selected
-    ? { id: selected.id, name: selected.name, code: selected.code, photo: null, categoryName: selected.categoryName, votes: selected.votes ?? 0 }
+    ? {
+        id: selected.id,
+        name: selected.name,
+        code: selected.code,
+        photo: selected.photoUrl,
+        categoryName: selected.categoryName,
+        votes: selected.votes ?? 0,
+      }
     : null;
 
   return (
@@ -63,8 +73,15 @@ export function EventClient({ event }: { event: PublicEventDetail }) {
       <Navbar />
 
       <main className="flex-1 pb-20">
-        <div className="bg-[#0E1030] text-white">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16">
+        <div className="relative bg-[#0E1030] text-white overflow-hidden">
+          {event.bannerUrl ? (
+            <div className="absolute inset-0 opacity-30">
+              <img src={event.bannerUrl} alt={event.name} className="w-full h-full object-cover" />
+              <div className="absolute inset-0 bg-gradient-to-t from-[#0E1030] via-[#0E1030]/80 to-transparent" />
+            </div>
+          ) : null}
+
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16 relative z-10">
             <div className="max-w-3xl space-y-4">
               <div className="flex flex-wrap items-center gap-2">
                 {event.votingOpen ? (
@@ -170,11 +187,16 @@ export function EventClient({ event }: { event: PublicEventDetail }) {
                 {filtered.map((c) => (
                   <div
                     key={c.id}
-                    className="bg-white rounded-2xl overflow-hidden border border-[#D9DBEA] shadow-xs hover:shadow-xl transition-all duration-300 flex flex-col"
+                    className="bg-white rounded-2xl overflow-hidden border border-[#D9DBEA] shadow-xs hover:shadow-xl transition-all duration-300 flex flex-col group"
                   >
-                    <div className="relative aspect-[3/4] w-full">
-                      <Avatar name={c.name} className="w-full h-full text-5xl" />
-                      <span className="absolute top-3 left-3 font-mono font-bold text-xs bg-white/10 text-white px-2.5 py-1 rounded-md border border-white/20">
+                    <div className="relative aspect-[3/4] w-full bg-[#0E1030] overflow-hidden">
+                      <Portrait
+                        name={c.name}
+                        photoUrl={c.photoUrl}
+                        className="w-full h-full text-5xl group-hover:scale-105 transition-transform duration-500"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent pointer-events-none" />
+                      <span className="absolute top-3 left-3 font-mono font-bold text-xs bg-[#0E1030]/80 text-white px-2.5 py-1 rounded-md border border-white/20">
                         Code: {c.code}
                       </span>
                       <div className="absolute bottom-3 left-3 right-3 text-white">
@@ -184,6 +206,10 @@ export function EventClient({ event }: { event: PublicEventDetail }) {
                     </div>
 
                     <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
+                      {c.bio ? (
+                        <p className="text-xs text-[#5B5F85] line-clamp-2">{c.bio}</p>
+                      ) : null}
+
                       <div className="flex items-center justify-between text-xs text-[#5B5F85]">
                         <span>GHS {(c.unitPriceMinor / 100).toFixed(2)} / vote</span>
                         <span className="font-heading font-extrabold text-[#4B35E0] text-sm">
@@ -252,7 +278,7 @@ export function EventClient({ event }: { event: PublicEventDetail }) {
                             >
                               {index + 1}
                             </div>
-                            <Avatar name={c.name} className="w-12 h-12 rounded-xl text-sm" />
+                            <Portrait name={c.name} photoUrl={c.photoUrl} className="w-12 h-12 rounded-xl text-sm shrink-0" />
                             <div>
                               <div className="flex items-center gap-2">
                                 <span className="font-mono text-xs font-bold text-[#4B35E0]">{c.code}</span>

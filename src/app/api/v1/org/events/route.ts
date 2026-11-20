@@ -16,6 +16,13 @@ const CreateEventSchema = z.object({
   categoryName: z.string().trim().min(2).max(100).default("Main Category"),
   unitPriceGhs: z.number().positive("Price per vote must be greater than zero").max(10000),
   description: z.string().trim().max(2000).optional(),
+  bannerUrl: z
+    .string()
+    .trim()
+    .url("Banner URL must be valid")
+    .refine((u) => u.startsWith("https://"), "Banner URL must use HTTPS")
+    .optional()
+    .or(z.literal("")),
 });
 
 function slugify(input: string): string {
@@ -38,7 +45,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { organizationId, name, publicCode, eventType, categoryName, unitPriceGhs, description } = parsed.data;
+  const { organizationId, name, publicCode, eventType, categoryName, unitPriceGhs, description, bannerUrl } = parsed.data;
   const auth = await requireApiOrgMember(organizationId);
   if (!auth.ok) return auth.response;
 
@@ -78,6 +85,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       { error: "CREATE_EVENT_FAILED", message: evErr?.message || "Could not create event." },
       { status: 500 }
+    );
+  }
+
+  const cleanBanner = bannerUrl?.trim() || null;
+  if (cleanBanner) {
+    await admin.from("branding_settings").upsert(
+      {
+        event_id: event.id,
+        organization_id: organizationId,
+        banner_public_id: cleanBanner,
+      },
+      { onConflict: "event_id" }
     );
   }
 

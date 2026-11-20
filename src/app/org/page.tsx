@@ -49,37 +49,54 @@ export default async function OrganiserPortalPage() {
   }
 
   const admin = createAdminClient();
-  const [{ data: evRows }, { data: catRows }, { data: fundRows }, { data: ceRows }] = await Promise.all([
-    admin
-      .from("events")
-      .select("id, slug, public_code, name, event_type, approval_status, voting_status, currency")
-      .eq("organization_id", activeOrg.id)
-      .order("created_at", { ascending: false }),
-    admin
-      .from("event_categories")
-      .select("id, event_id, name, unit_price_minor, results_state, live_visibility, sort_order")
-      .eq("organization_id", activeOrg.id)
-      .order("sort_order"),
-    admin.from("v_event_funds").select("*").eq("organization_id", activeOrg.id),
-    admin
-      .from("category_entries")
-      .select(
-        "id, event_id, category_id, status, contestant_entries(public_code, contestants(display_name)), category_entry_tallies(total_votes)"
-      )
-      .eq("organization_id", activeOrg.id),
-  ]);
+  const [{ data: evRows }, { data: catRows }, { data: fundRows }, { data: ceRows }, { data: socialRows }] =
+    await Promise.all([
+      admin
+        .from("events")
+        .select("id, slug, public_code, name, event_type, approval_status, voting_status, currency")
+        .eq("organization_id", activeOrg.id)
+        .order("created_at", { ascending: false }),
+      admin
+        .from("event_categories")
+        .select("id, event_id, name, unit_price_minor, results_state, live_visibility, sort_order")
+        .eq("organization_id", activeOrg.id)
+        .order("sort_order"),
+      admin.from("v_event_funds").select("*").eq("organization_id", activeOrg.id),
+      admin
+        .from("category_entries")
+        .select(
+          "id, event_id, category_id, status, contestant_entries(public_code, event_bio, contestants(id, display_name, bio, gender, profile_public_id)), category_entry_tallies(total_votes)"
+        )
+        .eq("organization_id", activeOrg.id),
+      admin
+        .from("contestant_social_links")
+        .select("contestant_id, platform, url")
+        .eq("organization_id", activeOrg.id)
+        .order("sort_order"),
+    ]);
 
   const fundByEvent = new Map((fundRows ?? []).map((f) => [f.event_id as string, f]));
   const eventNameById = new Map((evRows ?? []).map((e) => [e.id as string, e.name as string]));
   const catNameById = new Map((catRows ?? []).map((c) => [c.id as string, c.name as string]));
 
+  const socialsByContestant = new Map<string, Record<string, string>>();
+  for (const s of socialRows ?? []) {
+    const cid = s.contestant_id as string;
+    const map = socialsByContestant.get(cid) ?? {};
+    map[String(s.platform)] = String(s.url);
+    socialsByContestant.set(cid, map);
+  }
+
   const votesByEvent = new Map<string, number>();
 
   type TallyEmbed = { total_votes: number } | { total_votes: number }[] | null;
-  type ContestantEmbed = { display_name: string } | { display_name: string }[] | null;
+  type ContestantEmbed =
+    | { id: string; display_name: string; bio: string | null; gender: string | null; profile_public_id: string | null }
+    | { id: string; display_name: string; bio: string | null; gender: string | null; profile_public_id: string | null }[]
+    | null;
   type EntryEmbed =
-    | { public_code: string; contestants: ContestantEmbed }
-    | { public_code: string; contestants: ContestantEmbed }[]
+    | { public_code: string; event_bio: string | null; contestants: ContestantEmbed }
+    | { public_code: string; event_bio: string | null; contestants: ContestantEmbed }[]
     | null;
 
   const contestants: OrgContestantRow[] = (ceRows ?? []).map((ce) => {
@@ -90,13 +107,23 @@ export default async function OrganiserPortalPage() {
     const tallyRaw = ce.category_entry_tallies as TallyEmbed;
     const tally = Array.isArray(tallyRaw) ? tallyRaw[0] : tallyRaw;
     const votes = Number(tally?.total_votes ?? 0);
+    const contestantId = con?.id ?? "";
+    const links = socialsByContestant.get(contestantId) ?? {};
 
     votesByEvent.set(ce.event_id, (votesByEvent.get(ce.event_id) ?? 0) + votes);
 
     return {
       categoryEntryId: ce.id,
+      contestantId,
+      organizationId: activeOrg.id,
       code: entry?.public_code ?? "—",
       name: con?.display_name ?? "Contestant",
+      gender: con?.gender ?? "",
+      bio: con?.bio ?? entry?.event_bio ?? "",
+      photoUrl: con?.profile_public_id ?? "",
+      instagramUrl: links.instagram ?? "",
+      tiktokUrl: links.tiktok ?? "",
+      facebookUrl: links.facebook ?? "",
       eventName: eventNameById.get(ce.event_id) ?? "Event",
       categoryName: catNameById.get(ce.category_id) ?? "Category",
       status: ce.status,
@@ -108,6 +135,7 @@ export default async function OrganiserPortalPage() {
     const vf = fundByEvent.get(ev.id);
     return {
       id: ev.id,
+      organizationId: activeOrg.id,
       slug: ev.slug,
       name: ev.name,
       code: ev.public_code,

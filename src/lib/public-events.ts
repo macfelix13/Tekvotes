@@ -1,13 +1,10 @@
 // Server-only loaders for the public competition pages.
 //
-// Events, categories, entries and organizations are read with the anon key so
-// Supabase RLS decides what is public (published + not rejected/revoked).
-// Two things are deliberately NOT anon-readable in the schema and are read with
-// the service role using a narrow projection, only for rows the anon read
-// already proved public:
-//   - contestants.display_name (contestants table is member-only)
-//   - category_entry_tallies (staff-only); counts are only returned for
-//     categories whose results_state is 'live' or 'final'.
+// Events, categories, entries, branding and organizations are read with the anon key
+// so Supabase RLS decides what is public (published + not rejected/revoked).
+// Narrow service-role reads are scoped to IDs the anon query already proved public:
+//   - contestants (display_name, bio, profile_public_id)
+//   - category_entry_tallies (only when category.results_state is 'live' or 'final').
 import { connection } from "next/server";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
@@ -22,6 +19,7 @@ export interface PublicEventSummary {
   contestantsCount: number;
   minUnitPriceMinor: number | null;
   closesAt: string | null;
+  bannerUrl: string | null;
 }
 
 export interface PublicCategoryEntry {
@@ -32,6 +30,9 @@ export interface PublicCategoryEntry {
   code: string;
   contestantNumber: number;
   name: string;
+  bio: string | null;
+  photoUrl: string | null;
+  socials: { platform: string; url: string }[];
   votes: number | null; // null when the category hides results
 }
 
@@ -74,12 +75,17 @@ export async function listPublicEvents(): Promise<PublicEventSummary[]> {
   if (!events?.length) return [];
 
   const ids = events.map((e) => e.id);
-  const [{ data: cats, error: catErr }, { data: entries, error: entErr }] = await Promise.all([
+  const [{ data: cats, error: catErr }, { data: entries, error: entErr }, { data: brandings }] = await Promise.all([
     db.from("event_categories").select("event_id, unit_price_minor").in("event_id", ids),
     db.from("contestant_entries").select("event_id").in("event_id", ids),
+    db.from("branding_settings").select("event_id, banner_public_id").in("event_id", ids),
   ]);
   if (catErr) throw new Error(`Failed to load categories: ${catErr.message}`);
   if (entErr) throw new Error(`Failed to load entries: ${entErr.message}`);
+
+  const bannerByEvent = new Map(
+    (brandings ?? []).map((b) => [b.event_id as string, (b.banner_public_id as string | null) ?? null])
+  );
 
   return events.map((e) => {
     const prices = (cats ?? []).filter((c) => c.event_id === e.id).map((c) => Number(c.unit_price_minor));
@@ -94,6 +100,7 @@ export async function listPublicEvents(): Promise<PublicEventSummary[]> {
       contestantsCount: (entries ?? []).filter((x) => x.event_id === e.id).length,
       minUnitPriceMinor: prices.length ? Math.min(...prices) : null,
       closesAt: e.voting_closes_at,
+      bannerUrl: bannerByEvent.get(e.id) ?? null,
     };
   });
 }
@@ -113,7 +120,7 @@ export async function getPublicEvent(slug: string): Promise<PublicEventDetail | 
   if (error) throw new Error(`Failed to load event: ${error.message}`);
   if (!event) return null;
 
-  const [{ data: cats, error: catErr }, { data: catEntries, error: ceErr }] = await Promise.all([
+  const [{ data: cats, error: catErr }, { data: catEntries, error: ceErr }, { data: branding }] = await Promise.all([
     db
       .from("event_categories")
       .select("id, name, unit_price_minor, results_state, sort_order")
@@ -121,18 +128,25 @@ export async function getPublicEvent(slug: string): Promise<PublicEventDetail | 
       .order("sort_order"),
     db
       .from("category_entries")
-      .select("id, category_id, display_order, contestant_entries(public_code, contestant_number, contestant_id)")
+      .select("id, category_id, display_order, contestant_entries(public_code, contestant_number, contestant_id, event_bio)")
       .eq("event_id", event.id)
       .order("display_order"),
+    db
+      .from("branding_settings")
+      .select("banner_public_id")
+      .eq("event_id", event.id)
+      .maybeSingle(),
   ]);
   if (catErr) throw new Error(`Failed to load categories: ${catErr.message}`);
   if (ceErr) throw new Error(`Failed to load entries: ${ceErr.message}`);
 
-  type EntryEmbed = { public_code: string; contestant_number: number; contestant_id: string };
-  const rows = (catEntries ?? []).map((ce) => {
-    const raw = ce.contestant_entries as EntryEmbed | EntryEmbed[] | null;
-    return { ...ce, entry: Array.isArray(raw) ? raw[0] : raw };
-  }).filter((r) => r.entry);
+  type EntryEmbed = { public_code: string; contestant_number: number; contestant_id: string; event_bio: string | null };
+  const rows = (catEntries ?? [])
+    .map((ce) => {
+      const raw = ce.contestant_entries as EntryEmbed | EntryEmbed[] | null;
+      return { ...ce, entry: Array.isArray(raw) ? raw[0] : raw };
+    })
+    .filter((r) => r.entry);
 
   const categories = (cats ?? []).map((c) => ({
     id: c.id as string,
@@ -142,26 +156,46 @@ export async function getPublicEvent(slug: string): Promise<PublicEventDetail | 
   }));
   const catById = new Map(categories.map((c) => [c.id, c]));
 
-  // Narrow service-role reads, scoped to ids the anon query already returned.
   const svc = service();
   const contestantIds = [...new Set(rows.map((r) => r.entry!.contestant_id))];
   const visibleCeIds = rows.filter((r) => catById.get(r.category_id)?.resultsVisible).map((r) => r.id);
-  const [{ data: people, error: pErr }, { data: tallies, error: tErr }] = await Promise.all([
+
+  const [{ data: people, error: pErr }, { data: tallies, error: tErr }, { data: socialRows }] = await Promise.all([
     contestantIds.length
-      ? svc.from("contestants").select("id, display_name").in("id", contestantIds)
+      ? svc.from("contestants").select("id, display_name, bio, profile_public_id").in("id", contestantIds)
       : Promise.resolve({ data: [], error: null }),
     visibleCeIds.length
       ? svc.from("category_entry_tallies").select("category_entry_id, total_votes").in("category_entry_id", visibleCeIds)
       : Promise.resolve({ data: [], error: null }),
+    contestantIds.length
+      ? db.from("contestant_social_links").select("contestant_id, platform, url").in("contestant_id", contestantIds).order("sort_order")
+      : Promise.resolve({ data: [] }),
   ]);
   if (pErr) throw new Error(`Failed to load contestants: ${pErr.message}`);
   if (tErr) throw new Error(`Failed to load tallies: ${tErr.message}`);
 
-  const nameById = new Map((people ?? []).map((p) => [p.id as string, p.display_name as string]));
+  const personById = new Map(
+    (people ?? []).map((p) => [
+      p.id as string,
+      {
+        name: p.display_name as string,
+        bio: (p.bio as string | null) ?? null,
+        photoUrl: (p.profile_public_id as string | null) ?? null,
+      },
+    ])
+  );
   const votesByCe = new Map((tallies ?? []).map((t) => [t.category_entry_id as string, Number(t.total_votes)]));
+  const socialsByContestant = new Map<string, { platform: string; url: string }[]>();
+  for (const s of socialRows ?? []) {
+    const cid = s.contestant_id as string;
+    const list = socialsByContestant.get(cid) ?? [];
+    list.push({ platform: String(s.platform), url: String(s.url) });
+    socialsByContestant.set(cid, list);
+  }
 
   const entries: PublicCategoryEntry[] = rows.map((r) => {
     const cat = catById.get(r.category_id)!;
+    const person = personById.get(r.entry!.contestant_id);
     return {
       id: r.id,
       categoryId: r.category_id,
@@ -169,7 +203,10 @@ export async function getPublicEvent(slug: string): Promise<PublicEventDetail | 
       unitPriceMinor: cat?.unitPriceMinor ?? 0,
       code: r.entry!.public_code,
       contestantNumber: r.entry!.contestant_number,
-      name: nameById.get(r.entry!.contestant_id) ?? `Contestant ${r.entry!.contestant_number}`,
+      name: person?.name ?? `Contestant ${r.entry!.contestant_number}`,
+      bio: r.entry!.event_bio ?? person?.bio ?? null,
+      photoUrl: person?.photoUrl ?? null,
+      socials: socialsByContestant.get(r.entry!.contestant_id) ?? [],
       votes: cat?.resultsVisible ? votesByCe.get(r.id) ?? 0 : null,
     };
   });
@@ -186,6 +223,7 @@ export async function getPublicEvent(slug: string): Promise<PublicEventDetail | 
     votingOpen: event.voting_status === "active" && event.approval_status === "approved",
     opensAt: event.voting_opens_at,
     closesAt: event.voting_closes_at,
+    bannerUrl: (branding?.banner_public_id as string | null) ?? null,
     categories,
     entries,
   };

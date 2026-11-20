@@ -3,6 +3,14 @@ import { z } from "zod";
 import { requireApiOrgMember } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/server";
 
+const optionalUrl = z
+  .string()
+  .trim()
+  .url("Enter a valid URL starting with https://")
+  .refine((u) => u.startsWith("https://") || u.startsWith("http://"), "URL must start with http(s)://")
+  .optional()
+  .or(z.literal(""));
+
 const CreateContestantSchema = z.object({
   organizationId: z.string().uuid("Invalid organization ID"),
   eventId: z.string().uuid("Invalid event ID"),
@@ -14,7 +22,18 @@ const CreateContestantSchema = z.object({
     .min(2)
     .max(20)
     .regex(/^[A-Za-z0-9_-]+$/, "Short code can only contain letters, numbers, hyphens, or underscores"),
-  bio: z.string().trim().max(1000).optional(),
+  gender: z.string().trim().max(40).optional().or(z.literal("")),
+  bio: z.string().trim().max(1000).optional().or(z.literal("")),
+  photoUrl: z
+    .string()
+    .trim()
+    .url("Photo URL must be valid")
+    .refine((u) => u.startsWith("https://"), "Photo URL must use HTTPS")
+    .optional()
+    .or(z.literal("")),
+  instagramUrl: optionalUrl,
+  tiktokUrl: optionalUrl,
+  facebookUrl: optionalUrl,
 });
 
 export async function POST(req: NextRequest) {
@@ -27,13 +46,25 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { organizationId, eventId, categoryId, displayName, publicCode, bio } = parsed.data;
+  const {
+    organizationId,
+    eventId,
+    categoryId,
+    displayName,
+    publicCode,
+    gender,
+    bio,
+    photoUrl,
+    instagramUrl,
+    tiktokUrl,
+    facebookUrl,
+  } = parsed.data;
+
   const auth = await requireApiOrgMember(organizationId);
   if (!auth.ok) return auth.response;
 
   const admin = createAdminClient();
 
-  // Verify category belongs to event & organization
   const { data: cat, error: catErr } = await admin
     .from("event_categories")
     .select("id")
@@ -59,16 +90,21 @@ export async function POST(req: NextRequest) {
 
   const nextNum = Number(maxRow?.contestant_number ?? 0) + 1;
   const normalizedCode = publicCode.toUpperCase();
+  const cleanPhoto = photoUrl?.trim() || null;
+  const cleanBio = bio?.trim() || null;
+  const cleanGender = gender?.trim() || null;
 
   const { data: contestant, error: cErr } = await admin
     .from("contestants")
     .insert({
       organization_id: organizationId,
       display_name: displayName,
-      bio: bio || null,
+      gender: cleanGender,
+      bio: cleanBio,
+      profile_public_id: cleanPhoto,
       created_by: auth.user.id,
     })
-    .select("id, display_name")
+    .select("id, display_name, bio, gender, profile_public_id")
     .single();
 
   if (cErr || !contestant) {
@@ -86,6 +122,7 @@ export async function POST(req: NextRequest) {
       contestant_id: contestant.id,
       contestant_number: nextNum,
       public_code: normalizedCode,
+      event_bio: cleanBio,
       status: "approved",
       registered_by: auth.user.id,
     })
@@ -124,6 +161,36 @@ export async function POST(req: NextRequest) {
       { error: "CATEGORY_ENTRY_FAILED", message: ceErr?.message || "Could not assign contestant to category." },
       { status: 500 }
     );
+  }
+
+  if (cleanPhoto) {
+    await admin.from("contestant_media").insert({
+      contestant_id: contestant.id,
+      organization_id: organizationId,
+      entry_id: entry.id,
+      kind: "image",
+      cloudinary_public_id: cleanPhoto,
+      sort_order: 0,
+      moderation_status: "approved",
+    });
+  }
+
+  const socials = [
+    { platform: "instagram", url: instagramUrl?.trim() },
+    { platform: "tiktok", url: tiktokUrl?.trim() },
+    { platform: "facebook", url: facebookUrl?.trim() },
+  ]
+    .filter((s): s is { platform: string; url: string } => Boolean(s.url))
+    .map((s, idx) => ({
+      contestant_id: contestant.id,
+      organization_id: organizationId,
+      platform: s.platform,
+      url: s.url,
+      sort_order: idx,
+    }));
+
+  if (socials.length > 0) {
+    await admin.from("contestant_social_links").insert(socials);
   }
 
   return NextResponse.json({ contestant, entry, categoryEntry: catEntry }, { status: 201 });

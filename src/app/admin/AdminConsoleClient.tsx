@@ -5,6 +5,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Navbar } from "@/components/navigation/Navbar";
 import {
+  ContestantProfileModal,
+  type EditableContestantProfile,
+} from "@/components/admin/ContestantProfileModal";
+import {
   ShieldCheck,
   Building2,
   Landmark,
@@ -20,10 +24,16 @@ import {
   LogOut,
   Loader2,
   AlertCircle,
+  Users,
+  Plus,
+  Pencil,
+  Search,
+  User,
 } from "lucide-react";
 
 export interface AdminEventFundRow {
   id: string;
+  organizationId: string;
   slug: string;
   eventCode: string;
   eventName: string;
@@ -71,12 +81,40 @@ export interface AdminUncreditedOrderRow {
   createdAt: string;
 }
 
+export interface AdminCategoryRow {
+  id: string;
+  eventId: string;
+  name: string;
+}
+
+export interface AdminContestantRow {
+  categoryEntryId: string;
+  contestantId: string;
+  organizationId: string;
+  eventId: string;
+  eventName: string;
+  orgName: string;
+  categoryName: string;
+  code: string;
+  displayName: string;
+  gender: string;
+  bio: string;
+  photoUrl: string;
+  instagramUrl: string;
+  tiktokUrl: string;
+  facebookUrl: string;
+  status: string;
+  votes: number;
+}
+
 interface AdminConsoleProps {
   adminEmail: string;
   eventFunds: AdminEventFundRow[];
   orgFunds: AdminOrgFundRow[];
   applications: AdminApplicationRow[];
   uncreditedOrders: AdminUncreditedOrderRow[];
+  categories: AdminCategoryRow[];
+  contestants: AdminContestantRow[];
   totals: {
     grossCollectedMinor: number;
     commissionMinor: number;
@@ -94,17 +132,36 @@ export function AdminConsoleClient({
   orgFunds,
   applications,
   uncreditedOrders,
+  categories,
+  contestants,
   totals,
 }: AdminConsoleProps) {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<"treasury" | "approvals" | "refunds">("treasury");
+  const [activeTab, setActiveTab] = useState<"treasury" | "contestants" | "approvals" | "refunds">("treasury");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [notice, setNotice] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
+
+  const [contestantSearch, setContestantSearch] = useState("");
+  const [contestantEventFilter, setContestantEventFilter] = useState("all");
+  const [profileModalOpen, setProfileModalOpen] = useState(false);
+  const [editingProfile, setEditingProfile] = useState<EditableContestantProfile | null>(null);
 
   const pendingApps = applications.filter((a) => a.status === "pending");
   const eventsNeedingAttention = eventFunds.filter(
     (e) => e.approvalStatus !== "approved" || e.votingStatus === "not_started"
   );
+
+  const filteredContestants = contestants.filter((c) => {
+    const matchesEvent = contestantEventFilter === "all" || c.eventId === contestantEventFilter;
+    const q = contestantSearch.trim().toLowerCase();
+    const matchesQ =
+      !q ||
+      c.displayName.toLowerCase().includes(q) ||
+      c.code.toLowerCase().includes(q) ||
+      c.eventName.toLowerCase().includes(q) ||
+      c.orgName.toLowerCase().includes(q);
+    return matchesEvent && matchesQ;
+  });
 
   const runEventAction = async (
     eventId: string,
@@ -176,6 +233,29 @@ export function AdminConsoleClient({
     }
   };
 
+  const openCreateProfile = () => {
+    setEditingProfile(null);
+    setProfileModalOpen(true);
+  };
+
+  const openEditProfile = (c: AdminContestantRow) => {
+    setEditingProfile({
+      contestantId: c.contestantId,
+      organizationId: c.organizationId,
+      eventName: c.eventName,
+      categoryName: c.categoryName,
+      code: c.code,
+      displayName: c.displayName,
+      gender: c.gender,
+      bio: c.bio,
+      photoUrl: c.photoUrl,
+      instagramUrl: c.instagramUrl,
+      tiktokUrl: c.tiktokUrl,
+      facebookUrl: c.facebookUrl,
+    });
+    setProfileModalOpen(true);
+  };
+
   const handleSignOut = async () => {
     await fetch("/api/auth/signout", { method: "POST" });
     router.push("/auth/login");
@@ -197,12 +277,19 @@ export function AdminConsoleClient({
                 TekVotes Central Treasury &amp; Governance Console
               </h1>
               <p className="text-xs sm:text-sm text-white/80 max-w-3xl">
-                Live data from <code className="font-mono text-[#F2A900]">public.v_event_funds</code>,{" "}
-                <code className="font-mono text-[#F2A900]">public.v_org_funds</code>, and{" "}
-                <code className="font-mono text-[#F2A900]">organization_applications</code>. Payout releases execute strictly after voting closes.
+                Manage <code className="font-mono text-[#F2A900]">v_event_funds</code>,{" "}
+                <code className="font-mono text-[#F2A900]">v_org_funds</code>, contestant profiles &amp; portraits, and organizer approvals.
               </p>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                disabled={eventFunds.length === 0}
+                onClick={openCreateProfile}
+                className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-[#F2A900] text-[#0E1030] font-bold text-xs hover:bg-[#D99600] disabled:opacity-50 cursor-pointer"
+              >
+                <Plus className="w-4 h-4" /> Add Contestant Profile
+              </button>
               <Link
                 href="/org"
                 className="px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-semibold border border-white/15"
@@ -282,6 +369,7 @@ export function AdminConsoleClient({
             {(
               [
                 { id: "treasury", label: "Event & Org Fund Ledgers (v_event_funds / v_org_funds)", Icon: Landmark },
+                { id: "contestants", label: `Contestants & Profiles (${contestants.length})`, Icon: Users },
                 {
                   id: "approvals",
                   label: `Organiser & Event Approvals (${pendingApps.length + eventsNeedingAttention.length})`,
@@ -521,6 +609,119 @@ export function AdminConsoleClient({
             </>
           )}
 
+          {activeTab === "contestants" && (
+            <div className="bg-white rounded-2xl border border-[#D9DBEA] p-6 space-y-5 shadow-xs">
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-[#D9DBEA] pb-4">
+                <div>
+                  <span className="text-xs font-bold uppercase text-[#4B35E0]">Platform Roster Management</span>
+                  <h2 className="font-heading font-bold text-lg text-[#0E1030] mt-0.5">
+                    Contestant Profiles &amp; Portraits Across All Events
+                  </h2>
+                </div>
+                <div className="flex flex-wrap items-center gap-3">
+                  <select
+                    value={contestantEventFilter}
+                    onChange={(e) => setContestantEventFilter(e.target.value)}
+                    aria-label="Filter contestants by event"
+                    className="px-3 py-2 rounded-xl bg-[#F6F7FC] border border-[#D9DBEA] text-xs text-[#0E1030]"
+                  >
+                    <option value="all">All events ({eventFunds.length})</option>
+                    {eventFunds.map((ev) => (
+                      <option key={ev.id} value={ev.id}>
+                        {ev.eventName} ({ev.eventCode})
+                      </option>
+                    ))}
+                  </select>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={contestantSearch}
+                      onChange={(e) => setContestantSearch(e.target.value)}
+                      placeholder="Search name or code..."
+                      className="pl-9 pr-3 py-2 rounded-xl bg-[#F6F7FC] border border-[#D9DBEA] text-xs text-[#0E1030] w-56"
+                    />
+                    <Search className="w-3.5 h-3.5 text-[#5B5F85] absolute left-3 top-2.5 pointer-events-none" />
+                  </div>
+                  <button
+                    type="button"
+                    disabled={eventFunds.length === 0}
+                    onClick={openCreateProfile}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#4B35E0] text-white text-xs font-bold hover:bg-[#3B28B8] disabled:opacity-50 cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> Add Contestant Profile
+                  </button>
+                </div>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="border-b border-[#D9DBEA] text-[#5B5F85] uppercase">
+                      <th className="py-3 px-3">Contestant Profile</th>
+                      <th className="py-3 px-3">Code</th>
+                      <th className="py-3 px-3">Event &amp; Category</th>
+                      <th className="py-3 px-3">Organization</th>
+                      <th className="py-3 px-3 text-right">Votes</th>
+                      <th className="py-3 px-3 text-right">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#D9DBEA]">
+                    {filteredContestants.map((c) => (
+                      <tr key={c.categoryEntryId} className="hover:bg-[#F6F7FC]">
+                        <td className="py-3 px-3">
+                          <div className="flex items-center gap-3">
+                            {c.photoUrl ? (
+                              <img
+                                src={c.photoUrl}
+                                alt={c.displayName}
+                                className="w-10 h-10 rounded-xl object-cover border border-[#D9DBEA] shrink-0"
+                              />
+                            ) : (
+                              <div className="w-10 h-10 rounded-xl bg-[#0E1030] text-white flex items-center justify-center shrink-0">
+                                <User className="w-4 h-4 text-white/70" />
+                              </div>
+                            )}
+                            <div>
+                              <div className="font-bold text-[#0E1030]">{c.displayName}</div>
+                              {c.bio ? (
+                                <p className="text-[11px] text-[#5B5F85] line-clamp-1 max-w-xs">{c.bio}</p>
+                              ) : null}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="py-3 px-3 font-mono font-bold text-[#4B35E0]">{c.code}</td>
+                        <td className="py-3 px-3">
+                          <div className="font-semibold text-[#0E1030]">{c.eventName}</div>
+                          <div className="text-[11px] text-[#5B5F85]">{c.categoryName}</div>
+                        </td>
+                        <td className="py-3 px-3 text-[#5B5F85]">{c.orgName}</td>
+                        <td className="py-3 px-3 text-right font-mono font-bold text-[#0E1030]">
+                          {c.votes.toLocaleString()}
+                        </td>
+                        <td className="py-3 px-3 text-right">
+                          <button
+                            type="button"
+                            onClick={() => openEditProfile(c)}
+                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-[#D9DBEA] bg-white text-[#0E1030] font-semibold hover:border-[#4B35E0] hover:text-[#4B35E0] cursor-pointer"
+                          >
+                            <Pencil className="w-3 h-3" /> Edit Profile
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                    {filteredContestants.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="py-8 text-center text-[#5B5F85]">
+                          No contestant profiles match this filter.
+                        </td>
+                      </tr>
+                    ) : null}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
           {activeTab === "approvals" && (
             <div className="space-y-6">
               <div className="bg-white rounded-2xl border border-[#D9DBEA] p-6 space-y-4 shadow-xs">
@@ -699,6 +900,29 @@ export function AdminConsoleClient({
           )}
         </div>
       </main>
+
+      {profileModalOpen && (
+        <ContestantProfileModal
+          events={eventFunds.map((e) => ({
+            id: e.id,
+            organizationId: e.organizationId,
+            name: e.eventName,
+            code: e.eventCode,
+          }))}
+          categories={categories}
+          editing={editingProfile}
+          onClose={() => {
+            setProfileModalOpen(false);
+            setEditingProfile(null);
+          }}
+          onSaved={(msg) => {
+            setProfileModalOpen(false);
+            setEditingProfile(null);
+            setNotice({ kind: "ok", text: msg });
+            router.refresh();
+          }}
+        />
+      )}
     </div>
   );
 }

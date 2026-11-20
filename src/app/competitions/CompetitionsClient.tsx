@@ -93,14 +93,24 @@ export function CompetitionsClient({ events }: { events: PublicEventSummary[] })
                 className="bg-white rounded-2xl overflow-hidden border border-[#D9DBEA] shadow-xs hover:shadow-lg transition-all flex flex-col group"
               >
                 <div className="relative aspect-[16/9] w-full bg-[#0E1030] overflow-hidden flex items-end p-4">
-                  <span className="font-heading font-extrabold text-white/90 text-2xl leading-tight line-clamp-2">
+                  {event.bannerUrl ? (
+                    <>
+                      <img
+                        src={event.bannerUrl}
+                        alt={event.name}
+                        className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-[#0E1030]/90 via-[#0E1030]/35 to-transparent" />
+                    </>
+                  ) : null}
+                  <span className="relative z-10 font-heading font-extrabold text-white/95 text-2xl leading-tight line-clamp-2">
                     {event.name}
                   </span>
-                  <span className="absolute top-3 left-3 text-[11px] font-bold text-white px-2.5 py-1 rounded-full bg-[#4B35E0] shadow-xs">
+                  <span className="relative z-10 absolute top-3 left-3 text-[11px] font-bold text-white px-2.5 py-1 rounded-full bg-[#4B35E0] shadow-xs">
                     {bucket}
                   </span>
                   <span
-                    className={`absolute top-3 right-3 text-[11px] font-bold px-2.5 py-1 rounded-full ${
+                    className={`relative z-10 absolute top-3 right-3 text-[11px] font-bold px-2.5 py-1 rounded-full ${
                       event.votingOpen ? "bg-[#E6F8F0] text-[#0F9D6B]" : "bg-[#FDF3D6] text-[#C77700]"
                     }`}
                   >

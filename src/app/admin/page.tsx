@@ -6,6 +6,8 @@ import { Navbar } from "@/components/navigation/Navbar";
 import {
   AdminConsoleClient,
   type AdminApplicationRow,
+  type AdminCategoryRow,
+  type AdminContestantRow,
   type AdminEventFundRow,
   type AdminOrgFundRow,
   type AdminUncreditedOrderRow,
@@ -61,6 +63,9 @@ export default async function SuperAdminPage() {
     { data: creditedOrders },
     { data: appRows },
     { data: uncreditedRows },
+    { data: catRows },
+    { data: ceRows },
+    { data: socialRows },
   ] = await Promise.all([
     admin.from("v_event_funds").select("*"),
     admin
@@ -81,6 +86,14 @@ export default async function SuperAdminPage() {
       .select("id, reference, snapshot_amount_minor, snapshot_currency, created_at, events(name), voters(phone_e164)")
       .eq("status", "paid_uncredited")
       .order("created_at", { ascending: false }),
+    admin.from("event_categories").select("id, event_id, name").order("sort_order"),
+    admin
+      .from("category_entries")
+      .select(
+        "id, event_id, organization_id, category_id, status, contestant_entries(public_code, event_bio, contestants(id, display_name, bio, gender, profile_public_id)), category_entry_tallies(total_votes)"
+      )
+      .order("created_at", { ascending: false }),
+    admin.from("contestant_social_links").select("contestant_id, platform, url").order("sort_order"),
   ]);
 
   const fundByEventId = new Map((eventFundRows ?? []).map((f) => [f.event_id as string, f]));
@@ -110,16 +123,22 @@ export default async function SuperAdminPage() {
   const readOrgName = (o: OrgNameEmbed) => (Array.isArray(o) ? o[0]?.name : o?.name) ?? "Organization";
 
   const eventCountByOrg = new Map<string, number>();
+  const eventMetaById = new Map<string, { name: string; orgName: string }>();
+
   const eventFunds: AdminEventFundRow[] = (eventRows ?? []).map((ev) => {
     eventCountByOrg.set(ev.organization_id, (eventCountByOrg.get(ev.organization_id) ?? 0) + 1);
+    const orgName = readOrgName(ev.organizations as OrgNameEmbed);
+    eventMetaById.set(ev.id, { name: ev.name, orgName });
+
     const vf = fundByEventId.get(ev.id);
     const ord = orderTotalsByEvent.get(ev.id) ?? { gross: 0, base: 0, comm: 0 };
     return {
       id: ev.id,
+      organizationId: ev.organization_id,
       slug: ev.slug,
       eventCode: ev.public_code,
       eventName: ev.name,
-      orgName: readOrgName(ev.organizations as OrgNameEmbed),
+      orgName,
       approvalStatus: ev.approval_status,
       votingStatus: ev.voting_status,
       currency: ev.currency,
@@ -176,6 +195,63 @@ export default async function SuperAdminPage() {
     };
   });
 
+  const categories: AdminCategoryRow[] = (catRows ?? []).map((c) => ({
+    id: c.id,
+    eventId: c.event_id,
+    name: c.name,
+  }));
+  const catNameById = new Map(categories.map((c) => [c.id, c.name]));
+
+  const socialsByContestant = new Map<string, Record<string, string>>();
+  for (const s of socialRows ?? []) {
+    const cid = s.contestant_id as string;
+    const map = socialsByContestant.get(cid) ?? {};
+    map[String(s.platform)] = String(s.url);
+    socialsByContestant.set(cid, map);
+  }
+
+  type TallyEmbed = { total_votes: number } | { total_votes: number }[] | null;
+  type ContestantEmbed =
+    | { id: string; display_name: string; bio: string | null; gender: string | null; profile_public_id: string | null }
+    | { id: string; display_name: string; bio: string | null; gender: string | null; profile_public_id: string | null }[]
+    | null;
+  type EntryEmbed =
+    | { public_code: string; event_bio: string | null; contestants: ContestantEmbed }
+    | { public_code: string; event_bio: string | null; contestants: ContestantEmbed }[]
+    | null;
+
+  const contestants: AdminContestantRow[] = (ceRows ?? []).map((ce) => {
+    const entryRaw = ce.contestant_entries as EntryEmbed;
+    const entry = Array.isArray(entryRaw) ? entryRaw[0] : entryRaw;
+    const conRaw = entry?.contestants ?? null;
+    const con = Array.isArray(conRaw) ? conRaw[0] : conRaw;
+    const tallyRaw = ce.category_entry_tallies as TallyEmbed;
+    const tally = Array.isArray(tallyRaw) ? tallyRaw[0] : tallyRaw;
+    const contestantId = con?.id ?? "";
+    const links = socialsByContestant.get(contestantId) ?? {};
+    const evMeta = eventMetaById.get(ce.event_id);
+
+    return {
+      categoryEntryId: ce.id,
+      contestantId,
+      organizationId: ce.organization_id,
+      eventId: ce.event_id,
+      eventName: evMeta?.name ?? "Event",
+      orgName: evMeta?.orgName ?? "Organization",
+      categoryName: catNameById.get(ce.category_id) ?? "Category",
+      code: entry?.public_code ?? "—",
+      displayName: con?.display_name ?? "Contestant",
+      gender: con?.gender ?? "",
+      bio: con?.bio ?? entry?.event_bio ?? "",
+      photoUrl: con?.profile_public_id ?? "",
+      instagramUrl: links.instagram ?? "",
+      tiktokUrl: links.tiktok ?? "",
+      facebookUrl: links.facebook ?? "",
+      status: ce.status,
+      votes: Number(tally?.total_votes ?? 0),
+    };
+  });
+
   const totals = {
     grossCollectedMinor: eventFunds.reduce((acc, e) => acc + e.grossCollectedMinor, 0),
     commissionMinor: eventFunds.reduce((acc, e) => acc + e.commissionMinor, 0),
@@ -190,6 +266,8 @@ export default async function SuperAdminPage() {
       orgFunds={orgFunds}
       applications={applications}
       uncreditedOrders={uncreditedOrders}
+      categories={categories}
+      contestants={contestants}
       totals={totals}
     />
   );
