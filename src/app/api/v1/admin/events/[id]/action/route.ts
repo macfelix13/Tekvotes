@@ -44,6 +44,12 @@ export async function POST(
   }
 
   if (action === "set_commission") {
+    if (ev.voting_status !== "not_started") {
+      return NextResponse.json(
+        { error: "COMMISSION_LOCKED", message: "Commission percentage can only be changed before voting starts." },
+        { status: 409 }
+      );
+    }
     if (commissionPct === undefined || !Number.isFinite(commissionPct)) {
       return NextResponse.json(
         { error: "VALIDATION_ERROR", message: "Provide a valid commission percentage (0% to 50%)." },
@@ -60,6 +66,22 @@ export async function POST(
   }
 
   if (action === "approve") {
+    if (commissionPct !== undefined) {
+      if (!Number.isFinite(commissionPct) || commissionPct < 0 || commissionPct > 50) {
+        return NextResponse.json(
+          { error: "VALIDATION_ERROR", message: "Commission percentage must be between 0% and 50%." },
+          { status: 400 }
+        );
+      }
+      if (ev.voting_status === "not_started") {
+        const bps = Math.round(commissionPct * 100);
+        const { error: commErr } = await admin
+          .from("events")
+          .update({ commission_bps: bps })
+          .eq("id", id);
+        if (commErr) return NextResponse.json({ error: "ACTION_FAILED", message: commErr.message }, { status: 400 });
+      }
+    }
     const { error } = await admin.rpc("app_review_event_approval", {
       p_reviewer: auth.user.id,
       p_event_id: id,

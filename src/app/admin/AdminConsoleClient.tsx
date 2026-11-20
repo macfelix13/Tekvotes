@@ -249,10 +249,20 @@ export function AdminConsoleClient({
     setBusyId(eventId);
     setNotice(null);
     try {
+      const payload: Record<string, unknown> = { action, reason };
+      if (action === "approve" && commissionInputs[eventId] !== undefined) {
+        const pct = Number(commissionInputs[eventId]);
+        if (!Number.isFinite(pct) || pct < 0 || pct > 50) {
+          setNotice({ kind: "err", text: "Commission percentage must be between 0% and 50% before approving." });
+          return;
+        }
+        payload.commissionPct = pct;
+      }
+
       const res = await fetch(`/api/v1/admin/events/${eventId}/action`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action, reason }),
+        body: JSON.stringify(payload),
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) {
@@ -537,28 +547,34 @@ export function AdminConsoleClient({
                               </span>
                             </td>
                             <td className="py-3.5 px-3">
-                              <div className="inline-flex items-center gap-1">
-                                <input
-                                  type="number"
-                                  step="0.5"
-                                  min="0"
-                                  max="50"
-                                  aria-label={`Commission percentage for ${ef.eventName}`}
-                                  value={commissionInputs[ef.id] ?? (ef.commissionBps / 100).toFixed(1)}
-                                  onChange={(e) =>
-                                    setCommissionInputs((prev) => ({ ...prev, [ef.id]: e.target.value }))
-                                  }
-                                  className="w-16 px-2 py-1 rounded-lg bg-[#F6F7FC] border border-[#D9DBEA] font-mono text-xs text-[#0E1030]"
-                                />
-                                <button
-                                  type="button"
-                                  disabled={busyId === `comm-${ef.id}`}
-                                  onClick={() => void saveEventCommission(ef.id)}
-                                  className="px-2 py-1 rounded-lg bg-[#E8E5FD] text-[#4B35E0] font-bold hover:bg-[#DBD5FC] disabled:opacity-50 cursor-pointer"
-                                >
-                                  {busyId === `comm-${ef.id}` ? "..." : "Save"}
-                                </button>
-                              </div>
+                              {ef.votingStatus === "not_started" ? (
+                                <div className="inline-flex items-center gap-1">
+                                  <input
+                                    type="number"
+                                    step="0.5"
+                                    min="0"
+                                    max="50"
+                                    aria-label={`Commission percentage for ${ef.eventName}`}
+                                    value={commissionInputs[ef.id] ?? (ef.commissionBps / 100).toFixed(1)}
+                                    onChange={(e) =>
+                                      setCommissionInputs((prev) => ({ ...prev, [ef.id]: e.target.value }))
+                                    }
+                                    className="w-16 px-2 py-1 rounded-lg bg-[#F6F7FC] border border-[#D9DBEA] font-mono text-xs text-[#0E1030]"
+                                  />
+                                  <button
+                                    type="button"
+                                    disabled={busyId === `comm-${ef.id}`}
+                                    onClick={() => void saveEventCommission(ef.id)}
+                                    className="px-2 py-1 rounded-lg bg-[#E8E5FD] text-[#4B35E0] font-bold hover:bg-[#DBD5FC] disabled:opacity-50 cursor-pointer"
+                                  >
+                                    {busyId === `comm-${ef.id}` ? "..." : "Save"}
+                                  </button>
+                                </div>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 font-mono font-bold text-[#5B5F85]">
+                                  <Lock className="w-3 h-3" /> {(ef.commissionBps / 100).toFixed(1)}%
+                                </span>
+                              )}
                             </td>
                             <td className="py-3.5 px-3 font-mono">{fmtGhs(ef.grossCollectedMinor, ef.currency)}</td>
                             <td className="py-3.5 px-3 font-mono text-[#4B35E0] font-semibold">
@@ -1010,7 +1026,22 @@ export function AdminConsoleClient({
                               Approval: <strong>{ev.approvalStatus}</strong> · Voting: <strong>{ev.votingStatus}</strong>
                             </p>
                           </div>
-                          <div className="flex items-center gap-2">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <label className="text-[11px] font-bold text-[#5B5F85] uppercase">
+                              Fee %
+                            </label>
+                            <input
+                              type="number"
+                              step="0.5"
+                              min="0"
+                              max="50"
+                              aria-label={`Commission percentage for ${ev.eventName}`}
+                              value={commissionInputs[ev.id] ?? (ev.commissionBps / 100).toFixed(1)}
+                              onChange={(e) =>
+                                setCommissionInputs((prev) => ({ ...prev, [ev.id]: e.target.value }))
+                              }
+                              className="w-20 px-2.5 py-1.5 rounded-xl bg-white border border-[#D9DBEA] font-mono text-xs font-bold text-[#0E1030]"
+                            />
                             {ev.approvalStatus !== "approved" ? (
                               <button
                                 type="button"
@@ -1018,17 +1049,27 @@ export function AdminConsoleClient({
                                 onClick={() => void runEventAction(ev.id, "approve")}
                                 className="px-4 py-2 rounded-xl bg-[#0F9D6B] text-white text-xs font-bold hover:bg-[#0C8258] disabled:opacity-50 cursor-pointer"
                               >
-                                Approve Event
+                                Approve &amp; Lock Fee
                               </button>
                             ) : (
-                              <button
-                                type="button"
-                                disabled={isBusy}
-                                onClick={() => void runEventAction(ev.id, "open_voting")}
-                                className="px-4 py-2 rounded-xl bg-[#4B35E0] text-white text-xs font-bold hover:bg-[#3B28B8] disabled:opacity-50 cursor-pointer"
-                              >
-                                Activate Live Voting
-                              </button>
+                              <>
+                                <button
+                                  type="button"
+                                  disabled={busyId === `comm-${ev.id}`}
+                                  onClick={() => void saveEventCommission(ev.id)}
+                                  className="px-3 py-2 rounded-xl bg-[#E8E5FD] text-[#4B35E0] text-xs font-bold hover:bg-[#DBD5FC] disabled:opacity-50 cursor-pointer"
+                                >
+                                  {busyId === `comm-${ev.id}` ? "Saving..." : "Save Fee"}
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={isBusy}
+                                  onClick={() => void runEventAction(ev.id, "open_voting")}
+                                  className="px-4 py-2 rounded-xl bg-[#4B35E0] text-white text-xs font-bold hover:bg-[#3B28B8] disabled:opacity-50 cursor-pointer"
+                                >
+                                  Activate Live Voting
+                                </button>
+                              </>
                             )}
                           </div>
                         </div>
