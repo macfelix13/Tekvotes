@@ -47,33 +47,58 @@ function LoginFormContent() {
     try {
       const supabase = createClient();
 
-      if (mode === "magic") {
-        const callbackUrl = `${window.location.origin}/auth/callback?next=${encodeURIComponent(redirectTo)}`;
-        const { error } = await supabase.auth.signInWithOtp({
-          email: trimmedEmail,
-          options: {
-            shouldCreateUser: false,
-            emailRedirectTo: callbackUrl,
-          },
+      if (mode === "magic" || mode === "reset") {
+        const res = await fetch("/api/auth/send-link", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email: trimmedEmail,
+            purpose: mode,
+            redirectTo,
+          }),
         });
-        if (error) {
-          setErrorMsg(error.message);
-          return;
-        }
-        setSentMessage(`We sent a one-time sign-in link to ${trimmedEmail}. Open the link to continue to ${redirectTo}.`);
-        return;
-      }
+        const data = await res.json().catch(() => null);
 
-      if (mode === "reset") {
-        const callbackUrl = `${window.location.origin}/auth/callback?next=${encodeURIComponent("/auth/reset-password")}`;
-        const { error } = await supabase.auth.resetPasswordForEmail(trimmedEmail, {
-          redirectTo: callbackUrl,
-        });
-        if (error) {
-          setErrorMsg(error.message);
+        if (res.ok && data?.ok) {
+          setSentMessage(
+            mode === "reset"
+              ? `We sent a password reset link to ${trimmedEmail}. Open the link to set your new password.`
+              : `We sent a one-time sign-in link to ${trimmedEmail}. Open the link to continue to ${redirectTo}.`
+          );
           return;
         }
-        setSentMessage(`We sent a password reset link to ${trimmedEmail}. Open the link to set your new password.`);
+
+        if (res.ok && data?.fallbackRequired) {
+          if (mode === "magic") {
+            const callbackUrl = `${window.location.origin}/auth/callback?next=${encodeURIComponent(redirectTo)}`;
+            const { error } = await supabase.auth.signInWithOtp({
+              email: trimmedEmail,
+              options: {
+                shouldCreateUser: false,
+                emailRedirectTo: callbackUrl,
+              },
+            });
+            if (error) {
+              setErrorMsg(error.message);
+              return;
+            }
+            setSentMessage(`We sent a one-time sign-in link to ${trimmedEmail}. Open the link to continue to ${redirectTo}.`);
+            return;
+          }
+
+          const callbackUrl = `${window.location.origin}/auth/callback?next=${encodeURIComponent("/auth/reset-password")}`;
+          const { error } = await supabase.auth.resetPasswordForEmail(trimmedEmail, {
+            redirectTo: callbackUrl,
+          });
+          if (error) {
+            setErrorMsg(error.message);
+            return;
+          }
+          setSentMessage(`We sent a password reset link to ${trimmedEmail}. Open the link to set your new password.`);
+          return;
+        }
+
+        setErrorMsg(data?.error || "Could not send sign-in link.");
         return;
       }
 

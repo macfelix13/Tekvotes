@@ -80,7 +80,7 @@ export async function POST(req: NextRequest) {
         userId = matched.id;
       }
 
-      await supabase.from("profiles").upsert(
+      const { error: profileUpsertErr } = await supabase.from("profiles").upsert(
         {
           id: userId,
           display_name: applicantName,
@@ -89,11 +89,27 @@ export async function POST(req: NextRequest) {
         },
         { onConflict: "id" }
       );
+      if (profileUpsertErr?.code === "23505") {
+        await supabase.from("profiles").upsert(
+          {
+            id: userId,
+            display_name: applicantName,
+            email: normalizedEmail,
+          },
+          { onConflict: "id" }
+        );
+      }
     } else if (phoneE164) {
-      await supabase
+      const { error: profileUpdateErr } = await supabase
         .from("profiles")
         .update({ display_name: applicantName, phone_e164: phoneE164 })
         .eq("id", userId);
+      if (profileUpdateErr?.code === "23505") {
+        await supabase
+          .from("profiles")
+          .update({ display_name: applicantName })
+          .eq("id", userId);
+      }
     }
 
     // 2. Insert organization application
@@ -130,10 +146,13 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ success: true, accountCreated, data: appData }, { status: 201 });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Failed to process application";
-    console.error("org-application persist failed:", message);
+    const rawMessage = err instanceof Error ? err.message : "Failed to process application";
+    console.error("org-application persist failed:", rawMessage);
+    const safeMessage = rawMessage.includes("SUPABASE_SERVICE_ROLE_KEY")
+      ? "Server configuration error: missing SUPABASE_SERVICE_ROLE_KEY in environment."
+      : rawMessage || "We could not save your application. Please try again shortly.";
     return NextResponse.json(
-      { error: { code: "APPLICATION_FAILED", message: "We could not save your application. Please try again shortly." } },
+      { error: { code: "APPLICATION_FAILED", message: safeMessage } },
       { status: 500 }
     );
   }
