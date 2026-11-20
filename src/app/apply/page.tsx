@@ -10,6 +10,8 @@ export default function ApplyPage() {
     applicantName: "",
     applicantEmail: "",
     applicantPhone: "",
+    password: "",
+    confirmPassword: "",
     orgName: "",
     orgType: "beauty_pageant",
     description: "",
@@ -17,18 +19,41 @@ export default function ApplyPage() {
   });
 
   const [status, setStatus] = useState<"idle" | "submitting" | "success" | "error">("idle");
+  const [accountCreated, setAccountCreated] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setStatus("submitting");
     setErrorMessage("");
+
+    if (formData.password.length < 8) {
+      setStatus("error");
+      setErrorMessage("Password must be at least 8 characters.");
+      return;
+    }
+
+    if (formData.password !== formData.confirmPassword) {
+      setStatus("error");
+      setErrorMessage("Passwords do not match.");
+      return;
+    }
+
+    setStatus("submitting");
 
     try {
       const res = await fetch("/api/v1/public/org-applications", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          applicantName: formData.applicantName,
+          applicantEmail: formData.applicantEmail,
+          applicantPhone: formData.applicantPhone,
+          password: formData.password,
+          orgName: formData.orgName,
+          orgType: formData.orgType,
+          description: formData.description,
+          website: formData.website,
+        }),
       });
 
       const data = await res.json().catch(() => null);
@@ -37,6 +62,7 @@ export default function ApplyPage() {
         throw new Error(data?.error?.message || "Failed to submit application");
       }
 
+      setAccountCreated(Boolean(data?.accountCreated));
       setStatus("success");
     } catch (err: unknown) {
       setStatus("error");
@@ -66,7 +92,20 @@ export default function ApplyPage() {
                 </div>
                 <h3 className="font-heading font-bold text-xl text-[#0E1030]">Application Submitted!</h3>
                 <p className="text-sm text-[#5B5F85] max-w-md mx-auto">
-                  Your application has been saved for Super Admin review. Once approved, you can sign in with your email at the workspace login page.
+                  {accountCreated ? (
+                    <>
+                      Your organizer account has been created for{" "}
+                      <strong className="text-[#0E1030]">{formData.applicantEmail}</strong>. Sign in at{" "}
+                      <code className="font-mono text-[#4B35E0]">/auth/login</code> using your email and the password
+                      you just set. Your Organiser Portal unlocks as soon as Super Admin approves your application.
+                    </>
+                  ) : (
+                    <>
+                      Your application has been saved for Super Admin review. Sign in at{" "}
+                      <code className="font-mono text-[#4B35E0]">/auth/login</code> using your existing password (or
+                      Email Magic Link) to check your approval status.
+                    </>
+                  )}
                 </p>
                 <div className="pt-3 flex flex-wrap items-center justify-center gap-3">
                   <Link
@@ -204,6 +243,38 @@ export default function ApplyPage() {
                       onChange={(e) => setFormData({ ...formData, applicantEmail: e.target.value })}
                       className="w-full px-3.5 py-2.5 rounded-xl border border-[#D9DBEA] text-sm focus:outline-none focus:ring-2 focus:ring-[#4B35E0] bg-[#F6F7FC]/50"
                     />
+                  </div>
+
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-[#0E1030] mb-1.5">
+                        Account Password *
+                      </label>
+                      <input
+                        type="password"
+                        required
+                        minLength={8}
+                        placeholder="At least 8 characters"
+                        value={formData.password}
+                        onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-[#D9DBEA] text-sm focus:outline-none focus:ring-2 focus:ring-[#4B35E0] bg-[#F6F7FC]/50"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-[#0E1030] mb-1.5">
+                        Confirm Password *
+                      </label>
+                      <input
+                        type="password"
+                        required
+                        minLength={8}
+                        placeholder="Repeat password"
+                        value={formData.confirmPassword}
+                        onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-[#D9DBEA] text-sm focus:outline-none focus:ring-2 focus:ring-[#4B35E0] bg-[#F6F7FC]/50"
+                      />
+                    </div>
                   </div>
                 </div>
 

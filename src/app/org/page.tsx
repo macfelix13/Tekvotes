@@ -15,7 +15,17 @@ export default async function OrganiserPortalPage() {
   await connection();
   const { user, activeOrg } = await requireOrgPage();
 
+  const admin = createAdminClient();
+
   if (!activeOrg) {
+    const { data: latestApp } = await admin
+      .from("organization_applications")
+      .select("org_name, status, rejection_reason, created_at")
+      .eq("applicant_user_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
     return (
       <div className="min-h-screen flex flex-col bg-[#F6F7FC]">
         <Navbar />
@@ -23,32 +33,58 @@ export default async function OrganiserPortalPage() {
           <div className="max-w-md w-full bg-white rounded-3xl border border-[#D9DBEA] p-8 text-center space-y-4 shadow-sm">
             <Building2 className="w-10 h-10 text-[#4B35E0] mx-auto" />
             <h1 className="font-heading font-extrabold text-xl text-[#0E1030]">
-              No Active Organization Workspace
+              {latestApp?.status === "pending"
+                ? "Application Under Review"
+                : latestApp?.status === "rejected"
+                ? "Application Not Approved"
+                : "No Active Organization Workspace"}
             </h1>
             <p className="text-sm text-[#5B5F85]">
-              Signed in as <strong>{user.email}</strong>. Apply to host an event or wait for Super Admin approval to unlock your organizer workspace.
+              Signed in as <strong>{user.email}</strong>.{" "}
+              {latestApp?.status === "pending" ? (
+                <>
+                  Your application for <strong>{latestApp.org_name}</strong> is pending Super Admin approval. Once
+                  approved in <code className="font-mono text-[#4B35E0]">/admin</code>, refresh this page to open your
+                  workspace.
+                </>
+              ) : latestApp?.status === "rejected" ? (
+                <>
+                  Your application for <strong>{latestApp.org_name}</strong> was not approved
+                  {latestApp.rejection_reason ? `: ${latestApp.rejection_reason}` : "."}
+                </>
+              ) : (
+                "Apply to host an event or wait for Super Admin approval to unlock your organizer workspace."
+              )}
             </p>
-            <div className="flex items-center justify-center gap-3 pt-2">
-              <Link
-                href="/apply"
-                className="px-4 py-2.5 rounded-xl bg-[#4B35E0] text-white text-xs font-bold hover:bg-[#3B28B8]"
-              >
-                Apply as Organiser
-              </Link>
+            <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+              {!latestApp || latestApp.status === "rejected" ? (
+                <Link
+                  href="/apply"
+                  className="px-4 py-2.5 rounded-xl bg-[#4B35E0] text-white text-xs font-bold hover:bg-[#3B28B8]"
+                >
+                  Apply as Organiser
+                </Link>
+              ) : null}
               <Link
                 href="/competitions"
                 className="px-4 py-2.5 rounded-xl border border-[#D9DBEA] text-xs font-bold text-[#0E1030] hover:bg-[#F6F7FC]"
               >
                 Browse Events
               </Link>
+              <form action="/api/auth/signout" method="post">
+                <button
+                  type="submit"
+                  className="px-4 py-2.5 rounded-xl border border-[#D9DBEA] text-xs font-bold text-[#5B5F85] hover:bg-[#F6F7FC] cursor-pointer"
+                >
+                  Sign Out
+                </button>
+              </form>
             </div>
           </div>
         </main>
       </div>
     );
   }
-
-  const admin = createAdminClient();
   const [{ data: evRows }, { data: catRows }, { data: fundRows }, { data: ceRows }, { data: socialRows }] =
     await Promise.all([
       admin

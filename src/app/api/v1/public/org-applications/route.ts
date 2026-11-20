@@ -7,6 +7,7 @@ const applySchema = z.object({
   applicantName: z.string().min(2, "Name is too short"),
   applicantEmail: z.string().email("Invalid email address"),
   applicantPhone: z.string().min(8, "Invalid phone number"),
+  password: z.string().min(8, "Password must be at least 8 characters"),
   orgName: z.string().min(2).max(120),
   orgType: z.string().optional(),
   description: z.string().optional(),
@@ -33,8 +34,16 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { applicantName, applicantEmail, applicantPhone, orgName, orgType, description, website } =
-      parsed.data;
+    const {
+      applicantName,
+      applicantEmail,
+      applicantPhone,
+      password,
+      orgName,
+      orgType,
+      description,
+      website,
+    } = parsed.data;
 
     const phoneE164 = normalizePhone(applicantPhone);
     const supabase = createAdminClient();
@@ -48,17 +57,19 @@ export async function POST(req: NextRequest) {
       .maybeSingle();
 
     let userId = existingProfile?.id as string | undefined;
+    let accountCreated = false;
 
     if (!userId) {
       const { data: created, error: authErr } = await supabase.auth.admin.createUser({
         email: normalizedEmail,
-        password: randomBytes(24).toString("base64url"),
+        password: password || randomBytes(24).toString("base64url"),
         email_confirm: true,
         user_metadata: { full_name: applicantName },
       });
 
       if (created?.user?.id) {
         userId = created.user.id;
+        accountCreated = true;
       } else {
         // Handle case where user already exists in auth.users without profile email match
         const { data: listData } = await supabase.auth.admin.listUsers({ perPage: 1000 });
@@ -117,7 +128,7 @@ export async function POST(req: NextRequest) {
       throw appErr;
     }
 
-    return NextResponse.json({ success: true, data: appData }, { status: 201 });
+    return NextResponse.json({ success: true, accountCreated, data: appData }, { status: 201 });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Failed to process application";
     console.error("org-application persist failed:", message);
