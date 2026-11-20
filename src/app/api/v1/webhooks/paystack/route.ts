@@ -50,15 +50,36 @@ export async function POST(req: NextRequest) {
   }
 
   const webhookId = record?.webhook_id as string | undefined;
+  const forwardUrl = process.env.PAYSTACK_WEBHOOK_FORWARD_URL?.trim();
+
+  const forwardWebhookIfConfigured = async () => {
+    if (!forwardUrl || !forwardUrl.startsWith("https://")) return false;
+    try {
+      const fwdRes = await fetch(forwardUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(signature ? { "x-paystack-signature": signature } : {}),
+        },
+        body: rawBody,
+        signal: AbortSignal.timeout(5000),
+      });
+      return fwdRes.ok;
+    } catch (err) {
+      console.warn("Paystack webhook forward failed:", err instanceof Error ? err.message : err);
+      return false;
+    }
+  };
 
   try {
     if (eventType === "charge.success" && data?.reference) {
       const result = await fulfillPaystackOrderByReference(String(data.reference));
+      const forwarded = !result.found ? await forwardWebhookIfConfigured() : false;
       if (webhookId) {
         await supabase.rpc("app_mark_webhook_status", {
           p_webhook_id: webhookId,
           p_status: result.found ? "done" : "ignored",
-          p_error: result.found ? null : "ORDER_NOT_FOUND",
+          p_error: result.found ? null : forwarded ? "FORWARDED_TO_SECONDARY" : "ORDER_NOT_FOUND",
         });
       }
       return NextResponse.json({
@@ -66,17 +87,19 @@ export async function POST(req: NextRequest) {
         event: eventType,
         reference: data.reference,
         credited: result.found ? result.credited : false,
+        forwarded,
       });
     }
 
+    const forwarded = await forwardWebhookIfConfigured();
     if (webhookId) {
       await supabase.rpc("app_mark_webhook_status", {
         p_webhook_id: webhookId,
         p_status: "ignored",
-        p_error: null,
+        p_error: forwarded ? "FORWARDED_TO_SECONDARY" : null,
       });
     }
-    return NextResponse.json({ received: true, event: eventType });
+    return NextResponse.json({ received: true, event: eventType, forwarded });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Webhook processing failed";
     console.error("Paystack webhook fulfillment error:", msg);
