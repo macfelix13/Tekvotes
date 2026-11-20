@@ -81,25 +81,18 @@ export async function POST(req: NextRequest) {
       }
 
       return NextResponse.json({ success: true, data: appData });
-    } catch {
-      // Fallback when local Supabase schema is not yet pushed to remote project
-      return NextResponse.json({
-        success: true,
-        mode: "local_ledger",
-        data: {
-          id: `app-${Date.now()}`,
-          org_name: orgName,
-          applicant_name: applicantName,
-          applicant_email: applicantEmail,
-          org_type: orgType || "beauty_pageant",
-          status: "pending",
-          created_at: new Date().toISOString(),
-        },
-      });
+    } catch (err) {
+      // Never report success when the application was not persisted.
+      console.error("org-application persist failed", err instanceof Error ? err.message : err);
+      return NextResponse.json(
+        { error: { code: "APPLICATION_FAILED", message: "We could not save your application. Please try again shortly." } },
+        { status: 500 }
+      );
     }
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Failed to process application";
     return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: err.message || "Failed to process application" } },
+      { error: { code: "INTERNAL_ERROR", message } },
       { status: 500 }
     );
   }

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Navbar } from "@/components/navigation/Navbar";
 import { HomeSearch } from "@/components/search/HomeSearch";
+import { listPublicEvents, getPublicEvent } from "@/lib/public-events";
 import {
   ArrowRight,
   Search,
@@ -14,49 +15,18 @@ import {
   ShieldCheck,
 } from "lucide-react";
 
-export default function HomePage() {
-  const sampleEvents = [
-    {
-      id: "ev-1",
-      slug: "miss-hijab-ghana-2026",
-      title: "Miss Hijab Ghana 3RD EDITION",
-      category: "Awards & Pageant",
-      badgeColor: "bg-[#4B35E0]",
-      organizer: "Model Tv Ghana",
-      image: "https://images.unsplash.com/photo-1567401893414-76b7b1e5a7a5?auto=format&fit=crop&w=600&q=80",
-      totalVotes: "18,420",
-    },
-    {
-      id: "ev-2",
-      slug: "mempeasem-circuit-awards-2026",
-      title: "MEMPEASEM CIRCUIT MYF DINNER AND AWARDS 2026",
-      category: "Awards",
-      badgeColor: "bg-[#0E1030]",
-      organizer: "Mempeasem Circuit MYF",
-      image: "https://images.unsplash.com/photo-1511578314322-379afb476865?auto=format&fit=crop&w=600&q=80",
-      totalVotes: "12,950",
-    },
-    {
-      id: "ev-3",
-      slug: "kids-talent-show-2026",
-      title: "KID'S TALENT SHOW 5th Edition 2026",
-      category: "Talent Show",
-      badgeColor: "bg-[#C77700]",
-      organizer: "Kids Talent Show Network",
-      image: "https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?auto=format&fit=crop&w=600&q=80",
-      totalVotes: "34,110",
-    },
-    {
-      id: "ev-4",
-      slug: "miss-campus-ghana-2026",
-      title: "MISS CAMPUS GHANA 2026 FINALS",
-      category: "Pageant",
-      badgeColor: "bg-[#0F9D6B]",
-      organizer: "Campus Media Group",
-      image: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=600&q=80",
-      totalVotes: "29,480",
-    },
-  ];
+const formatType = (eventType: string) => {
+  if (eventType === "beauty_pageant") return { label: "Pageant", color: "bg-[#4B35E0]" };
+  if (eventType === "award_show") return { label: "Awards", color: "bg-[#0E1030]" };
+  if (eventType === "talent_show" || eventType === "campus_contest") return { label: "Talent Show", color: "bg-[#C77700]" };
+  return { label: "Competition", color: "bg-[#0F9D6B]" };
+};
+
+export default async function HomePage() {
+  const liveEvents = await listPublicEvents();
+  const featuredSummary = liveEvents.find((e) => e.votingOpen) ?? liveEvents[0] ?? null;
+  const featuredDetail = featuredSummary ? await getPublicEvent(featuredSummary.slug) : null;
+  const featuredTop = (featuredDetail?.entries ?? []).slice(0, 2);
 
   return (
     <div className="min-h-screen flex flex-col bg-[#F6F7FC]">
@@ -105,59 +75,73 @@ export default function HomePage() {
                 </div>
               </div>
 
-              {/* Right Hero Card / Live Pageant Preview */}
+              {/* Right Hero Card / Live Event Preview */}
               <div className="lg:col-span-5 relative">
                 <div className="relative mx-auto max-w-md rounded-2xl bg-white text-[#0E1030] p-6 shadow-2xl border border-white/20">
                   <div className="flex items-center justify-between pb-4 border-b border-[#D9DBEA]">
                     <div>
                       <span className="text-xs font-bold uppercase tracking-wider text-[#4B35E0]">Live Competition</span>
-                      <h3 className="font-heading font-extrabold text-lg text-[#0E1030]">Miss Hijab Ghana 2026</h3>
+                      <h3 className="font-heading font-extrabold text-lg text-[#0E1030]">
+                        {featuredDetail?.name ?? "No Active Event Yet"}
+                      </h3>
                     </div>
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-[#E6F8F0] text-[#0F9D6B]">
-                      <span className="w-2 h-2 rounded-full bg-[#0F9D6B] animate-pulse" />
-                      Voting Open
-                    </span>
+                    {featuredDetail?.votingOpen ? (
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-[#E6F8F0] text-[#0F9D6B]">
+                        <span className="w-2 h-2 rounded-full bg-[#0F9D6B] animate-pulse" />
+                        Voting Open
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-[#FDF3D6] text-[#C77700]">
+                        Coming Soon
+                      </span>
+                    )}
                   </div>
 
                   <div className="mt-5 space-y-3">
-                    <div className="flex items-center justify-between p-3.5 rounded-xl bg-[#F6F7FC] border border-[#D9DBEA]/70">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-[#4B35E0] text-white flex items-center justify-center font-bold text-sm shadow-xs">
-                          01
+                    {featuredTop.length > 0 ? (
+                      featuredTop.map((entry, idx) => (
+                        <div
+                          key={entry.id}
+                          className="flex items-center justify-between p-3.5 rounded-xl bg-[#F6F7FC] border border-[#D9DBEA]/70"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div
+                              className={`w-10 h-10 rounded-full text-white flex items-center justify-center font-bold text-sm shadow-xs ${
+                                idx === 0 ? "bg-[#4B35E0]" : "bg-[#0E1030]"
+                              }`}
+                            >
+                              {String(idx + 1).padStart(2, "0")}
+                            </div>
+                            <div>
+                              <p className="font-semibold text-sm text-[#0E1030]">{entry.name}</p>
+                              <p className="text-xs text-[#5B5F85]">
+                                Code: <span className="font-mono font-bold text-[#4B35E0]">{entry.code}</span>
+                              </p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <span className="font-heading font-extrabold text-[#4B35E0] text-base">
+                              {entry.votes == null ? "—" : entry.votes.toLocaleString()}
+                            </span>
+                            <p className="text-[11px] text-[#5B5F85]">votes</p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="font-semibold text-sm text-[#0E1030]">Fatima Abubakar</p>
-                          <p className="text-xs text-[#5B5F85]">Code: <span className="font-mono font-bold text-[#4B35E0]">FA01</span></p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <span className="font-heading font-extrabold text-[#4B35E0] text-base">6,840</span>
-                        <p className="text-[11px] text-[#5B5F85]">votes</p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-between p-3.5 rounded-xl bg-[#F6F7FC] border border-[#D9DBEA]/70">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-[#0E1030] text-white flex items-center justify-center font-bold text-sm shadow-xs">
-                          02
-                        </div>
-                        <div>
-                          <p className="font-semibold text-sm text-[#0E1030]">Mariam Zakaria</p>
-                          <p className="text-xs text-[#5B5F85]">Code: <span className="font-mono font-bold text-[#0E1030]">MZ04</span></p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <span className="font-heading font-extrabold text-[#0E1030] text-base">5,910</span>
-                        <p className="text-[11px] text-[#5B5F85]">votes</p>
-                      </div>
-                    </div>
+                      ))
+                    ) : (
+                      <p className="text-sm text-[#5B5F85] py-4 text-center">
+                        Published competitions will appear here automatically.
+                      </p>
+                    )}
                   </div>
 
                   <div className="mt-5 pt-4 border-t border-[#D9DBEA] flex items-center justify-between text-xs text-[#5B5F85]">
                     <span className="flex items-center gap-1 font-medium">
                       <ShieldCheck className="w-4 h-4 text-[#0F9D6B]" /> Bank-grade Audit Ledger
                     </span>
-                    <Link href="/competitions" className="font-semibold text-[#4B35E0] hover:underline">
+                    <Link
+                      href={featuredDetail ? `/competitions/${featuredDetail.slug}` : "/competitions"}
+                      className="font-semibold text-[#4B35E0] hover:underline"
+                    >
                       View all contestants →
                     </Link>
                   </div>
@@ -260,49 +244,49 @@ export default function HomePage() {
 
             {/* Events Grid */}
             <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              {sampleEvents.map((event) => (
-                <div
-                  key={event.id}
-                  className="bg-white rounded-2xl overflow-hidden border border-[#D9DBEA] shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col group"
-                >
-                  {/* Poster Image */}
-                  <div className="relative aspect-[4/3] w-full bg-[#0E1030] overflow-hidden">
-                    <img
-                      src={event.image}
-                      alt={event.title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
-                    <span
-                      className={`absolute top-3 left-3 text-[11px] font-bold text-white px-2.5 py-1 rounded-full ${event.badgeColor} shadow-xs`}
-                    >
-                      {event.category}
-                    </span>
-                  </div>
-
-                  {/* Body */}
-                  <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
-                    <div>
-                      <h3 className="font-heading font-bold text-base text-[#0E1030] line-clamp-2 leading-snug group-hover:text-[#4B35E0] transition-colors">
-                        {event.title}
-                      </h3>
-
-                      <div className="mt-2.5 flex items-center gap-1.5 text-xs text-[#5B5F85]">
-                        <Building2 className="w-3.5 h-3.5 text-[#5B5F85]" />
-                        <span className="truncate">{event.organizer}</span>
-                      </div>
+              {liveEvents.slice(0, 4).map((event) => {
+                const badge = formatType(event.eventType);
+                return (
+                  <div
+                    key={event.id}
+                    className="bg-white rounded-2xl overflow-hidden border border-[#D9DBEA] shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col group"
+                  >
+                    {/* Poster Header */}
+                    <div className="relative aspect-[4/3] w-full bg-[#0E1030] overflow-hidden flex items-end p-4">
+                      <span className="font-heading font-extrabold text-white/90 text-xl leading-tight line-clamp-2">
+                        {event.name}
+                      </span>
+                      <span
+                        className={`absolute top-3 left-3 text-[11px] font-bold text-white px-2.5 py-1 rounded-full ${badge.color} shadow-xs`}
+                      >
+                        {badge.label}
+                      </span>
                     </div>
 
-                    <Link
-                      href={`/competitions/${event.slug}`}
-                      className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#4B35E0] text-white font-semibold text-sm hover:bg-[#3B28B8] transition-all shadow-xs"
-                    >
-                      Vote Now
-                      <ArrowRight className="w-4 h-4" />
-                    </Link>
+                    {/* Body */}
+                    <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
+                      <div>
+                        <h3 className="font-heading font-bold text-base text-[#0E1030] line-clamp-2 leading-snug group-hover:text-[#4B35E0] transition-colors">
+                          {event.name}
+                        </h3>
+
+                        <div className="mt-2.5 flex items-center gap-1.5 text-xs text-[#5B5F85]">
+                          <Building2 className="w-3.5 h-3.5 text-[#5B5F85]" />
+                          <span className="truncate">{event.organizerName}</span>
+                        </div>
+                      </div>
+
+                      <Link
+                        href={`/competitions/${event.slug}`}
+                        className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#4B35E0] text-white font-semibold text-sm hover:bg-[#3B28B8] transition-all shadow-xs"
+                      >
+                        {event.votingOpen ? "Vote Now" : "View Event"}
+                        <ArrowRight className="w-4 h-4" />
+                      </Link>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </section>

@@ -8,7 +8,7 @@ export interface Contestant {
   id: string;
   name: string;
   code: string;
-  photo: string;
+  photo?: string | null;
   categoryName: string;
   votes: number;
 }
@@ -82,8 +82,12 @@ export function VotingDrawer({ contestant, eventName, unitPriceGhs, onClose, onS
         }),
       });
 
-      const data = await res.json();
-      const generatedRef = data?.reference || "TK-" + Math.floor(100000 + Math.random() * 900000);
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.reference) {
+        setErrorMsg(data?.message || "Unable to start checkout. No payment was taken. Please try again.");
+        return;
+      }
+      const generatedRef: string = data.reference;
 
       // Persist receipt in localStorage so /verify can look up this exact transaction live
       const newReceipt: StoredVoteReceipt = {
@@ -145,11 +149,20 @@ export function VotingDrawer({ contestant, eventName, unitPriceGhs, onClose, onS
             <>
               {/* Contestant Summary Card */}
               <div className="flex items-center gap-4 p-3.5 rounded-2xl bg-[#F6F7FC] border border-[#D9DBEA]">
-                <img
-                  src={contestant.photo}
-                  alt={contestant.name}
-                  className="w-14 h-14 rounded-xl object-cover border border-white shadow-xs"
-                />
+                {contestant.photo ? (
+                  <img
+                    src={contestant.photo}
+                    alt={contestant.name}
+                    className="w-14 h-14 rounded-xl object-cover border border-white shadow-xs"
+                  />
+                ) : (
+                  <div
+                    aria-hidden
+                    className="w-14 h-14 rounded-xl bg-[#0E1030] text-white font-heading font-bold flex items-center justify-center"
+                  >
+                    {contestant.name.split(" ").map((p) => p[0]).slice(0, 2).join("")}
+                  </div>
+                )}
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
                     <span className="font-mono font-bold text-xs px-2 py-0.5 rounded-md bg-[#E8E5FD] text-[#4B35E0]">
