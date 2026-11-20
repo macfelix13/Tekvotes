@@ -110,12 +110,7 @@ export default async function OrganiserPortalPage() {
         .select("contestant_id, platform, url")
         .eq("organization_id", activeOrg.id)
         .order("sort_order"),
-      admin
-        .schema("fin")
-        .from("settlement_requests")
-        .select("id, amount_minor, currency, status, created_at, settlement_destinations(masked_account, account_name), settlements(provider_transfer_ref, completed_at)")
-        .eq("organization_id", activeOrg.id)
-        .order("created_at", { ascending: false }),
+      admin.rpc("app_list_settlement_requests", { p_org_id: activeOrg.id }),
     ]);
 
   const fundByEvent = new Map((fundRows ?? []).map((f) => [f.event_id as string, f]));
@@ -209,25 +204,27 @@ export default async function OrganiserPortalPage() {
     inFlightMinor: (fundRows ?? []).reduce((acc, f) => acc + Number(f.in_flight_settlement_minor ?? 0), 0),
   };
 
-  type DestEmbed = { masked_account: string; account_name: string } | { masked_account: string; account_name: string }[] | null;
-  type SettleEmbed = { provider_transfer_ref: string | null; completed_at: string | null } | { provider_transfer_ref: string | null; completed_at: string | null }[] | null;
+  type SettlementRpcRow = {
+    id: string;
+    amount_minor: number;
+    currency: string;
+    status: string;
+    masked_account: string | null;
+    account_name: string | null;
+    provider_transfer_ref: string | null;
+    created_at: string;
+  };
 
-  const settlements: OrgSettlementRow[] = (settleReqRows ?? []).map((sr) => {
-    const dRaw = sr.settlement_destinations as DestEmbed;
-    const sRaw = sr.settlements as SettleEmbed;
-    const d = Array.isArray(dRaw) ? dRaw[0] : dRaw;
-    const s = Array.isArray(sRaw) ? sRaw[0] : sRaw;
-    return {
-      id: sr.id,
-      amountMinor: Number(sr.amount_minor),
-      currency: sr.currency,
-      status: sr.status,
-      destinationLabel: d?.masked_account ?? "Destination",
-      accountName: d?.account_name ?? "",
-      transferRef: s?.provider_transfer_ref ?? null,
-      createdAt: sr.created_at,
-    };
-  });
+  const settlements: OrgSettlementRow[] = ((settleReqRows as SettlementRpcRow[] | null) ?? []).map((sr) => ({
+    id: sr.id,
+    amountMinor: Number(sr.amount_minor),
+    currency: sr.currency,
+    status: sr.status,
+    destinationLabel: sr.masked_account ?? "Destination",
+    accountName: sr.account_name ?? "",
+    transferRef: sr.provider_transfer_ref ?? null,
+    createdAt: sr.created_at,
+  }));
 
   return (
     <OrgPortalClient

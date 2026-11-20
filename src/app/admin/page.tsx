@@ -96,11 +96,7 @@ export default async function SuperAdminPage() {
       )
       .order("created_at", { ascending: false }),
     admin.from("contestant_social_links").select("contestant_id, platform, url").order("sort_order"),
-    admin
-      .schema("fin")
-      .from("settlement_requests")
-      .select("id, organization_id, amount_minor, currency, status, created_at, settlement_destinations(masked_account, account_name), settlements(provider_transfer_ref)")
-      .order("created_at", { ascending: false }),
+    admin.rpc("app_list_settlement_requests", { p_org_id: null }),
   ]);
 
   const fundByEventId = new Map((eventFundRows ?? []).map((f) => [f.event_id as string, f]));
@@ -261,27 +257,31 @@ export default async function SuperAdminPage() {
   });
 
   const orgNameById = new Map((orgFundRows ?? []).map((o) => [o.organization_id as string, o.organization_name as string]));
-  type DestEmbed = { masked_account: string; account_name: string } | { masked_account: string; account_name: string }[] | null;
-  type SettleEmbed = { provider_transfer_ref: string | null } | { provider_transfer_ref: string | null }[] | null;
 
-  const settlements: AdminSettlementRow[] = (settleReqRows ?? []).map((sr) => {
-    const dRaw = sr.settlement_destinations as DestEmbed;
-    const sRaw = sr.settlements as SettleEmbed;
-    const d = Array.isArray(dRaw) ? dRaw[0] : dRaw;
-    const s = Array.isArray(sRaw) ? sRaw[0] : sRaw;
-    return {
-      id: sr.id,
-      organizationId: sr.organization_id,
-      orgName: orgNameById.get(sr.organization_id) ?? "Organization",
-      amountMinor: Number(sr.amount_minor),
-      currency: sr.currency,
-      status: sr.status,
-      destinationLabel: d?.masked_account ?? "Destination",
-      accountName: d?.account_name ?? "",
-      transferRef: s?.provider_transfer_ref ?? null,
-      createdAt: sr.created_at,
-    };
-  });
+  type SettlementRpcRow = {
+    id: string;
+    organization_id: string;
+    amount_minor: number;
+    currency: string;
+    status: string;
+    masked_account: string | null;
+    account_name: string | null;
+    provider_transfer_ref: string | null;
+    created_at: string;
+  };
+
+  const settlements: AdminSettlementRow[] = ((settleReqRows as SettlementRpcRow[] | null) ?? []).map((sr) => ({
+    id: sr.id,
+    organizationId: sr.organization_id,
+    orgName: orgNameById.get(sr.organization_id) ?? "Organization",
+    amountMinor: Number(sr.amount_minor),
+    currency: sr.currency,
+    status: sr.status,
+    destinationLabel: sr.masked_account ?? "Destination",
+    accountName: sr.account_name ?? "",
+    transferRef: sr.provider_transfer_ref ?? null,
+    createdAt: sr.created_at,
+  }));
 
   const totals = {
     grossCollectedMinor: eventFunds.reduce((acc, e) => acc + e.grossCollectedMinor, 0),
