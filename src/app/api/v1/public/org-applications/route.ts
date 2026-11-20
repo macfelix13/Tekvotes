@@ -146,7 +146,12 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ success: true, accountCreated, data: appData }, { status: 201 });
   } catch (err: unknown) {
-    const rawMessage = err instanceof Error ? err.message : "Failed to process application";
+    const rawMessage =
+      err instanceof Error
+        ? err.message
+        : typeof err === "object" && err !== null && "message" in err
+        ? String((err as { message: unknown }).message)
+        : "Failed to process application";
     console.error("org-application persist failed:", rawMessage);
     const safeMessage = rawMessage.includes("SUPABASE_SERVICE_ROLE_KEY")
       ? "Server configuration error: missing SUPABASE_SERVICE_ROLE_KEY in environment."

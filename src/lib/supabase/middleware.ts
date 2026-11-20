@@ -41,6 +41,20 @@ export async function updateSession(request: NextRequest) {
 
   const pathname = request.nextUrl.pathname;
 
+  // If Supabase strips /auth/callback and redirects ?code= or ?token_hash= to /, forward to /auth/callback
+  if (
+    pathname === "/" &&
+    (request.nextUrl.searchParams.has("code") ||
+      (request.nextUrl.searchParams.has("token_hash") && request.nextUrl.searchParams.has("type")))
+  ) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/auth/callback";
+    if (!url.searchParams.has("next")) {
+      url.searchParams.set("next", "/org");
+    }
+    return NextResponse.redirect(url);
+  }
+
   // Protect /admin routes (must be logged in)
   if (pathname.startsWith("/admin") && !user) {
     const url = request.nextUrl.clone();
