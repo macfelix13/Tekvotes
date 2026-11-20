@@ -92,7 +92,7 @@ export async function POST(req: NextRequest) {
     const { data: ce, error: ceErr } = await supabase
       .from("category_entries")
       .select(
-        "id, category_id, status, event_categories(id, unit_price_minor, currency, voting_enabled, min_votes, max_votes), events(id, approval_status, voting_status)"
+        "id, event_id, category_id, status, event_categories(id, unit_price_minor, currency, voting_enabled, min_votes, max_votes)"
       )
       .eq("id", categoryEntryId)
       .maybeSingle();
@@ -105,12 +105,20 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "NOT_FOUND", message: "Contestant entry not found." }, { status: 404 });
     }
 
+    const { data: ev, error: evErr } = await supabase
+      .from("events")
+      .select("id, approval_status, voting_status")
+      .eq("id", ce.event_id)
+      .maybeSingle();
+
+    if (evErr) {
+      console.error("Failed loading event for entry", evErr.message);
+      return NextResponse.json({ error: "DB_ERROR", message: "Could not verify event status." }, { status: 500 });
+    }
+
     type CatRow = { id: string; unit_price_minor: number; currency: string; voting_enabled: boolean };
-    type EvRow = { id: string; approval_status: string; voting_status: string };
     const catRaw = ce.event_categories as CatRow | CatRow[] | null;
-    const evRaw = ce.events as EvRow | EvRow[] | null;
     const cat = Array.isArray(catRaw) ? catRaw[0] : catRaw;
-    const ev = Array.isArray(evRaw) ? evRaw[0] : evRaw;
 
     if (!cat || !ev || ce.status !== "active" || !cat.voting_enabled || ev.approval_status !== "approved" || ev.voting_status !== "active") {
       return NextResponse.json(

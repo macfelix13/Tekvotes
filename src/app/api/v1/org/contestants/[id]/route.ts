@@ -105,6 +105,21 @@ export async function PATCH(
       .eq("organization_id", organizationId);
   }
 
+  if (status !== undefined) {
+    await Promise.all([
+      admin
+        .from("contestant_entries")
+        .update({ status: status === "active" ? "approved" : "withdrawn" })
+        .eq("contestant_id", id)
+        .eq("organization_id", organizationId),
+      admin
+        .from("category_entries")
+        .update({ status: status === "active" ? "active" : "withdrawn" })
+        .eq("contestant_id", id)
+        .eq("organization_id", organizationId),
+    ]);
+  }
+
   const nextPhoto = photoUrl?.trim() || null;
   if (photoUrl !== undefined && nextPhoto && nextPhoto !== existing.profile_public_id) {
     await admin.from("contestant_media").insert({

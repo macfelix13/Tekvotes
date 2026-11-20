@@ -117,6 +117,12 @@ export function OrgPortalClient({
   const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [editingProfile, setEditingProfile] = useState<EditableContestantProfile | null>(null);
 
+  // Add Category modal state
+  const [showAddCategoryModal, setShowAddCategoryModal] = useState(false);
+  const [catEventId, setCatEventId] = useState(events[0]?.id ?? "");
+  const [catName, setCatName] = useState("");
+  const [catPriceGhs, setCatPriceGhs] = useState("1.00");
+
   // Leaderboard visibility editor state
   const [editCatId, setEditCatId] = useState(categories[0]?.id ?? "");
   const activeCat = categories.find((c) => c.id === editCatId) ?? categories[0];
@@ -189,6 +195,36 @@ export function OrgPortalClient({
       router.refresh();
     } catch {
       setNotice({ kind: "err", text: "Network error creating event." });
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const handleCreateCategory = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!catEventId || !catName.trim()) return;
+    setBusyId("create-category");
+    setNotice(null);
+    try {
+      const res = await fetch(`/api/v1/org/events/${catEventId}/categories`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: catName.trim(),
+          unitPriceGhs: Number(catPriceGhs) || 1,
+        }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setNotice({ kind: "err", text: data?.message || "Failed to add category." });
+        return;
+      }
+      setShowAddCategoryModal(false);
+      setCatName("");
+      setNotice({ kind: "ok", text: `Added category "${data.category.name}".` });
+      router.refresh();
+    } catch {
+      setNotice({ kind: "err", text: "Network error creating category." });
     } finally {
       setBusyId(null);
     }
@@ -472,11 +508,25 @@ export function OrgPortalClient({
               </div>
 
               <div className="lg:col-span-4 bg-white rounded-2xl border border-[#D9DBEA] p-6 space-y-5">
-                <div>
-                  <span className="text-xs font-bold uppercase text-[#4B35E0]">Rule OD-11 / ND-06</span>
-                  <h3 className="font-heading font-bold text-lg text-[#0E1030] mt-0.5">
-                    Category Leaderboard Visibility
-                  </h3>
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <span className="text-xs font-bold uppercase text-[#4B35E0]">Rule OD-11 / ND-06</span>
+                    <h3 className="font-heading font-bold text-lg text-[#0E1030] mt-0.5">
+                      Category Leaderboard Visibility
+                    </h3>
+                  </div>
+                  {events.length > 0 ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCatEventId(events[0]?.id ?? "");
+                        setShowAddCategoryModal(true);
+                      }}
+                      className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-[#E8E5FD] text-[#4B35E0] text-[11px] font-bold hover:bg-[#DBD5FC] shrink-0 cursor-pointer"
+                    >
+                      <Plus className="w-3 h-3" /> Add Category
+                    </button>
+                  ) : null}
                 </div>
 
                 {activeCat ? (
@@ -809,6 +859,71 @@ export function OrgPortalClient({
                 className="w-full py-3 rounded-xl bg-[#4B35E0] text-white font-bold text-sm hover:bg-[#3B28B8] disabled:opacity-50 cursor-pointer"
               >
                 {busyId === "create-event" ? "Creating Event..." : "Publish Event Preview"}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {showAddCategoryModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 border border-[#D9DBEA] shadow-2xl space-y-5">
+            <div className="flex items-center justify-between">
+              <h3 className="font-heading font-extrabold text-xl text-[#0E1030]">Add Event Category</h3>
+              <button
+                type="button"
+                onClick={() => setShowAddCategoryModal(false)}
+                className="p-1.5 rounded-full hover:bg-[#F6F7FC]"
+              >
+                <X className="w-5 h-5 text-[#5B5F85]" />
+              </button>
+            </div>
+            <form onSubmit={handleCreateCategory} className="space-y-4 text-xs">
+              <div>
+                <label className="block font-bold text-[#5B5F85] uppercase mb-1">Event *</label>
+                <select
+                  value={catEventId}
+                  onChange={(e) => setCatEventId(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#F6F7FC] border border-[#D9DBEA] text-sm text-[#0E1030]"
+                >
+                  {events.map((ev) => (
+                    <option key={ev.id} value={ev.id}>
+                      {ev.code} — {ev.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block font-bold text-[#5B5F85] uppercase mb-1">Category Name *</label>
+                <input
+                  type="text"
+                  required
+                  value={catName}
+                  onChange={(e) => setCatName(e.target.value)}
+                  placeholder="e.g. Best Talent"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#F6F7FC] border border-[#D9DBEA] text-sm text-[#0E1030]"
+                />
+              </div>
+              <div>
+                <label className="block font-bold text-[#5B5F85] uppercase mb-1">
+                  Price per Vote ({org.defaultCurrency}) *
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0.10"
+                  required
+                  value={catPriceGhs}
+                  onChange={(e) => setCatPriceGhs(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#F6F7FC] border border-[#D9DBEA] text-sm text-[#0E1030]"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={busyId === "create-category"}
+                className="w-full py-3 rounded-xl bg-[#4B35E0] text-white font-bold text-sm hover:bg-[#3B28B8] disabled:opacity-50 cursor-pointer"
+              >
+                {busyId === "create-category" ? "Adding Category..." : "Create Category"}
               </button>
             </form>
           </div>
