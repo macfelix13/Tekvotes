@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createHmac, timingSafeEqual } from "node:crypto";
 
 export async function POST(req: NextRequest) {
-  const secret = process.env.PAYSTACK_SECRET_KEY || "sk_test_placeholder";
+  const secret = process.env.PAYSTACK_SECRET_KEY || "paystack_dev_secret";
   const signature = req.headers.get("x-paystack-signature");
 
   if (!signature) {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Navbar } from "@/components/navigation/Navbar";
 import {
   ShieldCheck,
@@ -89,6 +89,21 @@ export default function SuperAdminConsolePage() {
       status: "pending",
     },
   ]);
+
+  useEffect(() => {
+    try {
+      const stored = JSON.parse(sessionStorage.getItem("tekvotes_org_applications") || "[]");
+      if (Array.isArray(stored) && stored.length > 0) {
+        setPendingApps((prev) => {
+          const existingIds = new Set(prev.map((a) => a.id));
+          const additions = stored.filter((a: any) => !existingIds.has(a.id));
+          return [...additions, ...prev];
+        });
+      }
+    } catch {
+      // Ignore storage errors
+    }
+  }, []);
 
   const [pendingRefunds, setPendingRefunds] = useState([
     {

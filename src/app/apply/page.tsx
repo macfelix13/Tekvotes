@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import Link from "next/link";
 import { Navbar } from "@/components/navigation/Navbar";
 import { Building2, CheckCircle, AlertCircle, ArrowRight } from "lucide-react";
 
@@ -36,6 +37,23 @@ export default function ApplyPage() {
         throw new Error(data?.error?.message || "Failed to submit application");
       }
 
+      try {
+        const stored = JSON.parse(sessionStorage.getItem("tekvotes_org_applications") || "[]");
+        const nextApps = [
+          {
+            id: data?.data?.id || `app-${Date.now()}`,
+            orgName: formData.orgName,
+            applicant: `${formData.applicantName} (${formData.applicantEmail})`,
+            eventType: `${formData.orgType.replace(/_/g, " ").toUpperCase()} — ${formData.description || "New Organizer Onboarding"}`,
+            status: "pending",
+          },
+          ...stored,
+        ];
+        sessionStorage.setItem("tekvotes_org_applications", JSON.stringify(nextApps));
+      } catch {
+        // Ignore storage errors
+      }
+
       setStatus("success");
     } catch (err: any) {
       setStatus("error");
@@ -67,6 +85,20 @@ export default function ApplyPage() {
                 <p className="text-sm text-[#5B5F85] max-w-md mx-auto">
                   Our Super Admin team reviews all organizer applications to maintain platform trust. You will receive an email update once your application is reviewed.
                 </p>
+                <div className="pt-3 flex flex-wrap items-center justify-center gap-3">
+                  <Link
+                    href="/admin"
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#4B35E0] text-white text-xs font-bold hover:bg-[#3B28B8] transition-colors"
+                  >
+                    Review in Super Admin Approvals Queue →
+                  </Link>
+                  <Link
+                    href="/org"
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl border border-[#D9DBEA] text-[#0E1030] text-xs font-bold hover:bg-[#F6F7FC] transition-colors"
+                  >
+                    Open Organiser Portal
+                  </Link>
+                </div>
               </div>
             ) : (
               <form onSubmit={handleSubmit} className="space-y-5">
