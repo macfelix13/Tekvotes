@@ -50,7 +50,12 @@ export function EventClient({ event }: { event: PublicEventDetail }) {
       event.categories.map((cat) => {
         const rows = event.entries
           .filter((e) => e.categoryId === cat.id)
-          .sort((a, b) => (b.votes ?? 0) - (a.votes ?? 0) || a.contestantNumber - b.contestantNumber);
+          .sort((a, b) => {
+            if (a.officialResult && b.officialResult) {
+              return a.officialResult.rank - b.officialResult.rank;
+            }
+            return (b.votes ?? 0) - (a.votes ?? 0) || a.contestantNumber - b.contestantNumber;
+          });
         const total = rows.reduce((acc, r) => acc + (r.votes ?? 0), 0);
         return { cat, rows, total };
       }),
@@ -246,7 +251,14 @@ export function EventClient({ event }: { event: PublicEventDetail }) {
               <section key={cat.id} className="bg-white rounded-3xl p-6 sm:p-8 border border-[#D9DBEA] shadow-lg space-y-6">
                 <div className="flex items-center justify-between pb-4 border-b border-[#D9DBEA]">
                   <div>
-                    <span className="text-xs font-bold uppercase tracking-wider text-[#4B35E0]">Category</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold uppercase tracking-wider text-[#4B35E0]">Category</span>
+                      {cat.isFinal ? (
+                        <span className="px-2 py-0.5 rounded-full bg-[#E6F8F0] text-[#0F9D6B] text-[10px] font-bold uppercase">
+                          Official Final Results
+                        </span>
+                      ) : null}
+                    </div>
                     <h2 className="font-heading font-extrabold text-2xl text-[#0E1030] mt-0.5">{cat.name}</h2>
                   </div>
                   {cat.resultsVisible ? (
@@ -290,10 +302,24 @@ export function EventClient({ event }: { event: PublicEventDetail }) {
                             </div>
                           </div>
                           <div className="text-right">
-                            <span className="font-heading font-extrabold text-[#0E1030] text-base block">
-                              {(c.votes ?? 0).toLocaleString()}
-                            </span>
-                            <span className="text-xs font-medium text-[#5B5F85]">{percent}%</span>
+                            {c.officialResult ? (
+                              <>
+                                <span className="font-heading font-extrabold text-[#4B35E0] text-base block">
+                                  {c.officialResult.finalScore.toFixed(2)} pts
+                                </span>
+                                <span className="text-[11px] font-medium text-[#5B5F85]">
+                                  Public {c.officialResult.publicVoteScore.toFixed(1)} · Judge{" "}
+                                  {c.officialResult.judgeScore.toFixed(1)} ({(c.votes ?? 0).toLocaleString()} votes)
+                                </span>
+                              </>
+                            ) : (
+                              <>
+                                <span className="font-heading font-extrabold text-[#0E1030] text-base block">
+                                  {(c.votes ?? 0).toLocaleString()}
+                                </span>
+                                <span className="text-xs font-medium text-[#5B5F85]">{percent}%</span>
+                              </>
+                            )}
                           </div>
                         </div>
                       );

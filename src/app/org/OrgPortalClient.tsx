@@ -9,10 +9,12 @@ import {
   ContestantProfileModal,
   type EditableContestantProfile,
 } from "@/components/admin/ContestantProfileModal";
+import { OrgJudgingPanel } from "@/components/admin/OrgJudgingPanel";
 import {
   Trophy,
   Users,
   Wallet,
+  Scale,
   Plus,
   Eye,
   Lock,
@@ -99,7 +101,7 @@ export function OrgPortalClient({
   totals,
 }: OrgPortalProps) {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<"events" | "contestants" | "funds">("events");
+  const [activeTab, setActiveTab] = useState<"events" | "contestants" | "judging" | "funds">("events");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [notice, setNotice] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
 
@@ -415,6 +417,7 @@ export function OrgPortalClient({
               [
                 { id: "events", label: `Events & Visibility (${events.length})`, Icon: Trophy },
                 { id: "contestants", label: `Contestants & Profiles (${contestants.length})`, Icon: Users },
+                { id: "judging", label: "Judging & Results", Icon: Scale },
                 { id: "funds", label: "Event Funds & Post-Close Payouts", Icon: Wallet },
               ] as const
             ).map(({ id, label, Icon }) => (
@@ -700,6 +703,8 @@ export function OrgPortalClient({
               </div>
             </div>
           )}
+
+          {activeTab === "judging" && <OrgJudgingPanel categories={categories} />}
 
           {activeTab === "funds" && (
             <div className="bg-white rounded-2xl border border-[#D9DBEA] p-6 space-y-5">

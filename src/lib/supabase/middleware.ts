@@ -71,5 +71,13 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
+  // Protect /judge ballot routes
+  if (pathname.startsWith("/judge") && !user) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/auth/login";
+    url.searchParams.set("redirectTo", pathname);
+    return NextResponse.redirect(url);
+  }
+
   return supabaseResponse;
 }

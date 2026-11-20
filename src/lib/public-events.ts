@@ -34,13 +34,19 @@ export interface PublicCategoryEntry {
   photoUrl: string | null;
   socials: { platform: string; url: string }[];
   votes: number | null; // null when the category hides results
+  officialResult?: {
+    rank: number;
+    finalScore: number;
+    publicVoteScore: number;
+    judgeScore: number;
+  } | null;
 }
 
 export interface PublicEventDetail extends Omit<PublicEventSummary, "contestantsCount" | "minUnitPriceMinor"> {
   description: string | null;
   venue: string | null;
   opensAt: string | null;
-  categories: { id: string; name: string; unitPriceMinor: number; resultsVisible: boolean }[];
+  categories: { id: string; name: string; unitPriceMinor: number; resultsVisible: boolean; isFinal: boolean }[];
   entries: PublicCategoryEntry[];
 }
 
@@ -153,26 +159,65 @@ export async function getPublicEvent(slug: string): Promise<PublicEventDetail | 
     name: c.name as string,
     unitPriceMinor: Number(c.unit_price_minor),
     resultsVisible: c.results_state === "live" || c.results_state === "final",
+    isFinal: c.results_state === "final",
   }));
   const catById = new Map(categories.map((c) => [c.id, c]));
 
   const svc = service();
   const contestantIds = [...new Set(rows.map((r) => r.entry!.contestant_id))];
   const visibleCeIds = rows.filter((r) => catById.get(r.category_id)?.resultsVisible).map((r) => r.id);
+  const finalCatIds = categories.filter((c) => c.isFinal).map((c) => c.id);
 
-  const [{ data: people, error: pErr }, { data: tallies, error: tErr }, { data: socialRows }] = await Promise.all([
-    contestantIds.length
-      ? svc.from("contestants").select("id, display_name, bio, profile_public_id").in("id", contestantIds)
-      : Promise.resolve({ data: [], error: null }),
-    visibleCeIds.length
-      ? svc.from("category_entry_tallies").select("category_entry_id, total_votes").in("category_entry_id", visibleCeIds)
-      : Promise.resolve({ data: [], error: null }),
-    contestantIds.length
-      ? db.from("contestant_social_links").select("contestant_id, platform, url").in("contestant_id", contestantIds).order("sort_order")
-      : Promise.resolve({ data: [] }),
-  ]);
+  const [{ data: people, error: pErr }, { data: tallies, error: tErr }, { data: socialRows }, { data: pubRows }] =
+    await Promise.all([
+      contestantIds.length
+        ? svc.from("contestants").select("id, display_name, bio, profile_public_id").in("id", contestantIds)
+        : Promise.resolve({ data: [], error: null }),
+      visibleCeIds.length
+        ? svc.from("category_entry_tallies").select("category_entry_id, total_votes").in("category_entry_id", visibleCeIds)
+        : Promise.resolve({ data: [], error: null }),
+      contestantIds.length
+        ? db.from("contestant_social_links").select("contestant_id, platform, url").in("contestant_id", contestantIds).order("sort_order")
+        : Promise.resolve({ data: [] }),
+      finalCatIds.length
+        ? db
+            .from("result_publications")
+            .select("category_id, calculation_id, published_at")
+            .in("category_id", finalCatIds)
+            .eq("state", "final")
+            .order("published_at", { ascending: false })
+        : Promise.resolve({ data: [] }),
+    ]);
   if (pErr) throw new Error(`Failed to load contestants: ${pErr.message}`);
   if (tErr) throw new Error(`Failed to load tallies: ${tErr.message}`);
+
+  const latestCalcByCat = new Map<string, string>();
+  for (const p of pubRows ?? []) {
+    if (!latestCalcByCat.has(p.category_id as string)) {
+      latestCalcByCat.set(p.category_id as string, p.calculation_id as string);
+    }
+  }
+  const calcIds = [...new Set(latestCalcByCat.values())];
+  const { data: officialRows } =
+    calcIds.length > 0
+      ? await db
+          .from("results")
+          .select("calculation_id, category_entry_id, rank, final_score, public_vote_score, judge_aggregate_score")
+          .in("calculation_id", calcIds)
+      : { data: [] };
+
+  const officialByCe = new Map<
+    string,
+    { rank: number; finalScore: number; publicVoteScore: number; judgeScore: number }
+  >();
+  for (const r of officialRows ?? []) {
+    officialByCe.set(r.category_entry_id as string, {
+      rank: Number(r.rank ?? 0),
+      finalScore: Number(r.final_score ?? 0),
+      publicVoteScore: Number(r.public_vote_score ?? 0),
+      judgeScore: Number(r.judge_aggregate_score ?? 0),
+    });
+  }
 
   const personById = new Map(
     (people ?? []).map((p) => [
@@ -208,6 +253,7 @@ export async function getPublicEvent(slug: string): Promise<PublicEventDetail | 
       photoUrl: person?.photoUrl ?? null,
       socials: socialsByContestant.get(r.entry!.contestant_id) ?? [],
       votes: cat?.resultsVisible ? votesByCe.get(r.id) ?? 0 : null,
+      officialResult: officialByCe.get(r.id) ?? null,
     };
   });
 

@@ -1,164 +1,140 @@
-"use client";
+import { redirect } from "next/navigation";
+import { connection } from "next/server";
+import { getCurrentUser } from "@/lib/auth";
+import { createAdminClient } from "@/lib/supabase/server";
+import { JudgePortalClient, type JudgeAssignmentBundle } from "./JudgePortalClient";
 
-import { useState } from "react";
-import { Navbar } from "@/components/navigation/Navbar";
-import { Scale, Lock, CheckCircle2, Sparkles, AlertCircle } from "lucide-react";
+export default async function JudgePortalPage() {
+  await connection();
+  const user = await getCurrentUser();
+  if (!user) {
+    redirect("/auth/login?redirectTo=/judge");
+  }
 
-interface JudgeEntry {
-  id: string;
-  code: string;
-  name: string;
-  poiseScore: number;
-  talentScore: number;
-  eloquenceScore: number;
-  locked: boolean;
-}
+  const admin = createAdminClient();
 
-export default function JudgePortalPage() {
-  const [entries, setEntries] = useState<JudgeEntry[]>([
-    { id: "e-1", code: "FA01", name: "Fatima Abubakar", poiseScore: 8.5, talentScore: 9.0, eloquenceScore: 9.0, locked: true },
-    { id: "e-2", code: "MZ04", name: "Mariam Zakaria", poiseScore: 8.0, talentScore: 8.5, eloquenceScore: 8.5, locked: false },
-    { id: "e-3", code: "AS07", name: "Amina Sulemana", poiseScore: 7.5, talentScore: 8.0, eloquenceScore: 8.5, locked: false },
-  ]);
+  const { data: judgeRows } = await admin
+    .from("judges")
+    .select("id, display_name, organization_id")
+    .eq("user_id", user.id);
 
-  const updateScore = (id: string, field: "poiseScore" | "talentScore" | "eloquenceScore", val: number) => {
-    setEntries((prev) =>
-      prev.map((e) => (e.id === id && !e.locked ? { ...e, [field]: Math.min(10, Math.max(0, val)) } : e))
-    );
-  };
+  const judgeIds = (judgeRows ?? []).map((j) => j.id);
 
-  const lockSubmission = (id: string) => {
-    setEntries((prev) => prev.map((e) => (e.id === id ? { ...e, locked: true } : e)));
-  };
+  const { data: rawAssignments } =
+    judgeIds.length > 0
+      ? await admin
+          .from("judging_assignments")
+          .select("id, judge_id, event_id, category_id, organization_id")
+          .in("judge_id", judgeIds)
+          .is("revoked_at", null)
+          .order("created_at", { ascending: true })
+      : { data: [] };
 
-  return (
-    <div className="min-h-screen flex flex-col bg-[#F6F7FC]">
-      <Navbar />
+  const assignments = rawAssignments ?? [];
+  const categoryIds = Array.from(new Set(assignments.map((a) => a.category_id)));
+  const eventIds = Array.from(new Set(assignments.map((a) => a.event_id)));
+  const assignmentIds = assignments.map((a) => a.id);
 
-      <main className="flex-1 py-10">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
-          <div className="bg-[#0E1030] text-white rounded-3xl p-6 sm:p-8 shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="space-y-1.5">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 text-[#F2A900] text-xs font-bold uppercase tracking-wider">
-                <Scale className="w-3.5 h-3.5" /> Official Adjudicator Ballot · Phase 6 Engine
-              </div>
-              <h1 className="font-heading font-extrabold text-2xl sm:text-3xl">
-                Judge Panel — Miss Hijab Ghana 3RD EDITION
-              </h1>
-              <p className="text-xs sm:text-sm text-white/75">
-                Criteria weights: Poise & Elegance (30%) · Talent Showcase (40%) · Eloquence & Q&A (30%). Once submitted, scores are cryptographically locked (Rule Q38).
-              </p>
-            </div>
-          </div>
+  const [{ data: events }, { data: categories }, { data: criteria }, { data: catEntries }, { data: submissions }] =
+    categoryIds.length > 0
+      ? await Promise.all([
+          admin.from("events").select("id, name, slug, public_code").in("id", eventIds),
+          admin.from("event_categories").select("id, name, results_state").in("id", categoryIds),
+          admin
+            .from("judging_criteria")
+            .select("id, category_id, name, weight_bps, min_score, max_score, step, sort_order")
+            .in("category_id", categoryIds)
+            .order("sort_order", { ascending: true }),
+          admin
+            .from("category_entries")
+            .select(
+              "id, category_id, contestant_entries(public_code, contestant_number), contestants(display_name, profile_public_id)"
+            )
+            .in("category_id", categoryIds)
+            .eq("status", "active"),
+          admin
+            .from("judging_submissions")
+            .select("id, assignment_id, category_entry_id, status, submitted_at")
+            .in("assignment_id", assignmentIds)
+            .eq("status", "submitted"),
+        ])
+      : [{ data: [] }, { data: [] }, { data: [] }, { data: [] }, { data: [] }];
 
-          <div className="grid gap-6">
-            {entries.map((entry) => {
-              const weighted100 = (
-                (entry.poiseScore / 10) * 30 +
-                (entry.talentScore / 10) * 40 +
-                (entry.eloquenceScore / 10) * 30
-              ).toFixed(2);
+  const submissionIds = (submissions ?? []).map((s) => s.id);
+  const { data: scoreRows } =
+    submissionIds.length > 0
+      ? await admin
+          .from("judging_scores")
+          .select("submission_id, criterion_id, score")
+          .in("submission_id", submissionIds)
+      : { data: [] };
 
-              return (
-                <div
-                  key={entry.id}
-                  className="bg-white rounded-2xl border border-[#D9DBEA] p-6 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-6"
-                >
-                  <div className="space-y-1 min-w-[200px]">
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono text-xs font-bold px-2 py-0.5 rounded bg-[#E8E5FD] text-[#4B35E0]">
-                        {entry.code}
-                      </span>
-                      {entry.locked ? (
-                        <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-[#E6F8F0] text-[#0F9D6B]">
-                          <Lock className="w-3 h-3" /> Locked
-                        </span>
-                      ) : (
-                        <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-[#FDF3D6] text-[#C77700]">
-                          Draft Ballot
-                        </span>
-                      )}
-                    </div>
-                    <h3 className="font-heading font-bold text-lg text-[#0E1030]">{entry.name}</h3>
-                    <p className="text-xs text-[#5B5F85]">
-                      Normalized Judge Score: <strong className="text-[#4B35E0]">{weighted100} / 100</strong>
-                    </p>
-                  </div>
+  const eventMap = new Map((events ?? []).map((e) => [e.id, e]));
+  const catMap = new Map((categories ?? []).map((c) => [c.id, c]));
+  const judgeMap = new Map((judgeRows ?? []).map((j) => [j.id, j]));
 
-                  {/* Criteria Inputs */}
-                  <div className="grid sm:grid-cols-3 gap-4 flex-1">
-                    <div>
-                      <label className="block text-[11px] font-bold text-[#5B5F85] uppercase mb-1">
-                        Poise (30%) · 0–10
-                      </label>
-                      <input
-                        type="number"
-                        step="0.5"
-                        min="0"
-                        max="10"
-                        disabled={entry.locked}
-                        value={entry.poiseScore}
-                        onChange={(e) => updateScore(entry.id, "poiseScore", parseFloat(e.target.value) || 0)}
-                        className="w-full px-3.5 py-2 rounded-xl bg-[#F6F7FC] border border-[#D9DBEA] font-mono font-bold text-sm text-[#0E1030] disabled:opacity-60"
-                      />
-                    </div>
+  type EntryJoin = { public_code?: string; contestant_number?: number };
+  type ContestantJoin = { display_name?: string; profile_public_id?: string | null };
 
-                    <div>
-                      <label className="block text-[11px] font-bold text-[#5B5F85] uppercase mb-1">
-                        Talent (40%) · 0–10
-                      </label>
-                      <input
-                        type="number"
-                        step="0.5"
-                        min="0"
-                        max="10"
-                        disabled={entry.locked}
-                        value={entry.talentScore}
-                        onChange={(e) => updateScore(entry.id, "talentScore", parseFloat(e.target.value) || 0)}
-                        className="w-full px-3.5 py-2 rounded-xl bg-[#F6F7FC] border border-[#D9DBEA] font-mono font-bold text-sm text-[#0E1030] disabled:opacity-60"
-                      />
-                    </div>
+  const bundles: JudgeAssignmentBundle[] = assignments.map((a) => {
+    const ev = eventMap.get(a.event_id);
+    const cat = catMap.get(a.category_id);
+    const jg = judgeMap.get(a.judge_id);
 
-                    <div>
-                      <label className="block text-[11px] font-bold text-[#5B5F85] uppercase mb-1">
-                        Eloquence (30%) · 0–10
-                      </label>
-                      <input
-                        type="number"
-                        step="0.5"
-                        min="0"
-                        max="10"
-                        disabled={entry.locked}
-                        value={entry.eloquenceScore}
-                        onChange={(e) => updateScore(entry.id, "eloquenceScore", parseFloat(e.target.value) || 0)}
-                        className="w-full px-3.5 py-2 rounded-xl bg-[#F6F7FC] border border-[#D9DBEA] font-mono font-bold text-sm text-[#0E1030] disabled:opacity-60"
-                      />
-                    </div>
-                  </div>
+    const catCriteria = (criteria ?? [])
+      .filter((c) => c.category_id === a.category_id)
+      .map((c) => ({
+        id: c.id,
+        name: c.name,
+        weightBps: Number(c.weight_bps),
+        minScore: Number(c.min_score),
+        maxScore: Number(c.max_score),
+        step: Number(c.step),
+      }));
 
-                  {/* Submit & Lock Button */}
-                  <div className="flex items-center justify-end">
-                    {entry.locked ? (
-                      <div className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-[#F6F7FC] border border-[#D9DBEA] text-xs font-bold text-[#5B5F85]">
-                        <CheckCircle2 className="w-4 h-4 text-[#0F9D6B]" />
-                        Submitted & Immutable
-                      </div>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => lockSubmission(entry.id)}
-                        className="px-5 py-2.5 rounded-xl bg-[#4B35E0] text-white text-xs font-bold hover:bg-[#3B28B8] shadow-sm cursor-pointer"
-                      >
-                        Submit & Lock Score
-                      </button>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </main>
-    </div>
-  );
+    const entries = (catEntries ?? [])
+      .filter((ce) => ce.category_id === a.category_id)
+      .map((ce) => {
+        const ceRaw = ce.contestant_entries as EntryJoin | EntryJoin[] | null;
+        const cRaw = ce.contestants as ContestantJoin | ContestantJoin[] | null;
+        const ceRow = Array.isArray(ceRaw) ? ceRaw[0] : ceRaw;
+        const cRow = Array.isArray(cRaw) ? cRaw[0] : cRaw;
+
+        const sub = (submissions ?? []).find(
+          (s) => s.assignment_id === a.id && s.category_entry_id === ce.id
+        );
+        const scoresMap: Record<string, number> = {};
+        if (sub) {
+          for (const sr of (scoreRows ?? []).filter((r) => r.submission_id === sub.id)) {
+            scoresMap[sr.criterion_id] = Number(sr.score);
+          }
+        }
+
+        return {
+          categoryEntryId: ce.id,
+          code: ceRow?.public_code ?? "—",
+          number: Number(ceRow?.contestant_number ?? 0),
+          name: cRow?.display_name ?? "Contestant",
+          photoUrl: cRow?.profile_public_id ?? null,
+          locked: Boolean(sub),
+          submittedAt: sub?.submitted_at ?? null,
+          savedScores: scoresMap,
+        };
+      })
+      .sort((x, y) => x.number - y.number);
+
+    return {
+      assignmentId: a.id,
+      judgeName: jg?.display_name ?? user.email ?? "Judge",
+      eventName: ev?.name ?? "Competition",
+      eventSlug: ev?.slug ?? "",
+      categoryId: a.category_id,
+      categoryName: cat?.name ?? "Category",
+      resultsState: cat?.results_state ?? "live",
+      criteria: catCriteria,
+      entries,
+    };
+  });
+
+  return <JudgePortalClient userEmail={user.email ?? ""} assignments={bundles} />;
 }
