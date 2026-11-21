@@ -42,6 +42,13 @@ export interface PublicCategoryEntry {
   } | null;
 }
 
+export interface PublicVotePackage {
+  id: string;
+  label: string;
+  votes: number;
+  priceMinor: number;
+}
+
 export interface PublicEventDetail extends Omit<PublicEventSummary, "contestantsCount" | "minUnitPriceMinor"> {
   description: string | null;
   venue: string | null;
@@ -54,6 +61,7 @@ export interface PublicEventDetail extends Omit<PublicEventSummary, "contestants
     liveVisibility: "ranks_only" | "counts" | "percent";
     contestantResultsVisible: boolean;
     isFinal: boolean;
+    packages: PublicVotePackage[];
   }[];
   entries: PublicCategoryEntry[];
 }
@@ -75,6 +83,7 @@ export interface ContestantTrackerDetail {
     contestantResultsVisible: boolean;
     publicResultsVisible: boolean;
     isFinal: boolean;
+    packages: PublicVotePackage[];
   };
   contestant: {
     id: string; // category_entries.id
@@ -167,23 +176,30 @@ export async function getPublicEvent(slug: string): Promise<PublicEventDetail | 
   if (error) throw new Error(`Failed to load event: ${error.message}`);
   if (!event) return null;
 
-  const [{ data: cats, error: catErr }, { data: catEntries, error: ceErr }, { data: branding }] = await Promise.all([
-    db
-      .from("event_categories")
-      .select("id, name, unit_price_minor, results_state, live_visibility, contestant_results_visible, sort_order")
-      .eq("event_id", event.id)
-      .order("sort_order"),
-    db
-      .from("category_entries")
-      .select("id, category_id, display_order, contestant_entries(public_code, contestant_number, contestant_id, event_bio)")
-      .eq("event_id", event.id)
-      .order("display_order"),
-    db
-      .from("branding_settings")
-      .select("banner_public_id")
-      .eq("event_id", event.id)
-      .maybeSingle(),
-  ]);
+  const [{ data: cats, error: catErr }, { data: catEntries, error: ceErr }, { data: branding }, { data: pkgRows }] =
+    await Promise.all([
+      db
+        .from("event_categories")
+        .select("id, name, unit_price_minor, results_state, live_visibility, contestant_results_visible, sort_order")
+        .eq("event_id", event.id)
+        .order("sort_order"),
+      db
+        .from("category_entries")
+        .select("id, category_id, display_order, contestant_entries(public_code, contestant_number, contestant_id, event_bio)")
+        .eq("event_id", event.id)
+        .order("display_order"),
+      db
+        .from("branding_settings")
+        .select("banner_public_id")
+        .eq("event_id", event.id)
+        .maybeSingle(),
+      db
+        .from("vote_packages")
+        .select("id, category_id, label, votes, price_minor, sort_order")
+        .eq("event_id", event.id)
+        .eq("active", true)
+        .order("sort_order"),
+    ]);
   if (catErr) throw new Error(`Failed to load categories: ${catErr.message}`);
   if (ceErr) throw new Error(`Failed to load entries: ${ceErr.message}`);
 
@@ -195,6 +211,19 @@ export async function getPublicEvent(slug: string): Promise<PublicEventDetail | 
     })
     .filter((r) => r.entry);
 
+  const packagesByCat = new Map<string, PublicVotePackage[]>();
+  for (const p of pkgRows ?? []) {
+    const cid = p.category_id as string;
+    const list = packagesByCat.get(cid) ?? [];
+    list.push({
+      id: p.id as string,
+      label: String(p.label),
+      votes: Number(p.votes),
+      priceMinor: Number(p.price_minor),
+    });
+    packagesByCat.set(cid, list);
+  }
+
   const categories = (cats ?? []).map((c) => ({
     id: c.id as string,
     name: c.name as string,
@@ -203,6 +232,7 @@ export async function getPublicEvent(slug: string): Promise<PublicEventDetail | 
     liveVisibility: (c.live_visibility as "ranks_only" | "counts" | "percent") ?? "counts",
     contestantResultsVisible: c.contestant_results_visible !== false,
     isFinal: c.results_state === "final",
+    packages: packagesByCat.get(c.id as string) ?? [],
   }));
   const catById = new Map(categories.map((c) => [c.id, c]));
 
@@ -375,6 +405,7 @@ export async function getContestantTracker(
       contestantResultsVisible: cat.contestantResultsVisible,
       publicResultsVisible: cat.resultsVisible,
       isFinal: cat.isFinal,
+      packages: cat.packages,
     },
     contestant: {
       id: target.id,

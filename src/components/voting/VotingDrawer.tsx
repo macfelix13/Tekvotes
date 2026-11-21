@@ -12,16 +12,25 @@ export interface Contestant {
   votes: number;
 }
 
+export interface VotePackageOption {
+  id: string;
+  label: string;
+  votes: number;
+  priceMinor: number;
+}
+
 interface VotingDrawerProps {
   contestant: Contestant | null;
   eventName: string;
   unitPriceGhs: number;
+  packages?: VotePackageOption[];
   onClose: () => void;
   onSuccess?: (orderRef: string, voteCount: number) => void;
 }
 
-export function VotingDrawer({ contestant, eventName, unitPriceGhs, onClose }: VotingDrawerProps) {
-  const [selectedVotes, setSelectedVotes] = useState<number>(10);
+export function VotingDrawer({ contestant, eventName, unitPriceGhs, packages = [], onClose }: VotingDrawerProps) {
+  const [selectedPackageId, setSelectedPackageId] = useState<string>(packages[0]?.id ?? "");
+  const [selectedVotes, setSelectedVotes] = useState<number>(packages[0]?.votes ?? 10);
   const [customVotes, setCustomVotes] = useState<string>("");
   const [phone, setPhone] = useState<string>("");
   const [email, setEmail] = useState<string>("");
@@ -32,8 +41,13 @@ export function VotingDrawer({ contestant, eventName, unitPriceGhs, onClose }: V
 
   if (!contestant) return null;
 
-  const currentVotes = customVotes ? Math.max(1, parseInt(customVotes, 10) || 1) : selectedVotes;
-  const baseMinor = currentVotes * Math.round(unitPriceGhs * 100);
+  const activePackage = !customVotes && selectedPackageId ? packages.find((p) => p.id === selectedPackageId) : undefined;
+  const currentVotes = customVotes
+    ? Math.max(1, parseInt(customVotes, 10) || 1)
+    : activePackage
+    ? activePackage.votes
+    : selectedVotes;
+  const baseMinor = activePackage ? activePackage.priceMinor : currentVotes * Math.round(unitPriceGhs * 100);
   const surchargeMinor = Math.floor((baseMinor * 195 + 5000) / 10000);
   const totalMinor = baseMinor + surchargeMinor;
   const baseAmount = baseMinor / 100;
@@ -61,7 +75,7 @@ export function VotingDrawer({ contestant, eventName, unitPriceGhs, onClose }: V
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           categoryEntryId: contestant.id,
-          voteQuantity: currentVotes,
+          ...(activePackage ? { packageId: activePackage.id } : { voteQuantity: currentVotes }),
           voterPhone: cleanPhone,
           voterEmail: email.trim(),
         }),
@@ -184,29 +198,55 @@ export function VotingDrawer({ contestant, eventName, unitPriceGhs, onClose }: V
                   Select Vote Package
                 </label>
                 <div className="grid grid-cols-3 gap-2.5">
-                  {[5, 10, 25, 50, 100, 250].map((num) => {
-                    const isSelected = !customVotes && selectedVotes === num;
-                    return (
-                      <button
-                        key={num}
-                        type="button"
-                        onClick={() => {
-                          setSelectedVotes(num);
-                          setCustomVotes("");
-                        }}
-                        className={`p-3 rounded-xl border text-center transition-all cursor-pointer ${
-                          isSelected
-                            ? "bg-[#4B35E0] text-white border-[#4B35E0] shadow-md shadow-[#4B35E0]/20 font-bold"
-                            : "bg-[#F6F7FC] text-[#0E1030] border-[#D9DBEA] hover:border-[#4B35E0]/50 font-medium"
-                        }`}
-                      >
-                        <div className="text-sm">{num} Votes</div>
-                        <div className={`text-xs ${isSelected ? "text-white/80" : "text-[#5B5F85]"}`}>
-                          GHS {(num * unitPriceGhs).toFixed(2)}
-                        </div>
-                      </button>
-                    );
-                  })}
+                  {packages.length > 0
+                    ? packages.map((pkg) => {
+                        const isSelected = !customVotes && selectedPackageId === pkg.id;
+                        return (
+                          <button
+                            key={pkg.id}
+                            type="button"
+                            onClick={() => {
+                              setSelectedPackageId(pkg.id);
+                              setSelectedVotes(pkg.votes);
+                              setCustomVotes("");
+                            }}
+                            className={`p-3 rounded-xl border text-center transition-all cursor-pointer ${
+                              isSelected
+                                ? "bg-[#4B35E0] text-white border-[#4B35E0] shadow-md shadow-[#4B35E0]/20 font-bold"
+                                : "bg-[#F6F7FC] text-[#0E1030] border-[#D9DBEA] hover:border-[#4B35E0]/50 font-medium"
+                            }`}
+                          >
+                            <div className="text-sm">{pkg.label}</div>
+                            <div className={`text-xs ${isSelected ? "text-white/80" : "text-[#5B5F85]"}`}>
+                              GHS {(pkg.priceMinor / 100).toFixed(2)}
+                            </div>
+                          </button>
+                        );
+                      })
+                    : [5, 10, 25, 50, 100, 250].map((num) => {
+                        const isSelected = !customVotes && selectedVotes === num;
+                        return (
+                          <button
+                            key={num}
+                            type="button"
+                            onClick={() => {
+                              setSelectedPackageId("");
+                              setSelectedVotes(num);
+                              setCustomVotes("");
+                            }}
+                            className={`p-3 rounded-xl border text-center transition-all cursor-pointer ${
+                              isSelected
+                                ? "bg-[#4B35E0] text-white border-[#4B35E0] shadow-md shadow-[#4B35E0]/20 font-bold"
+                                : "bg-[#F6F7FC] text-[#0E1030] border-[#D9DBEA] hover:border-[#4B35E0]/50 font-medium"
+                            }`}
+                          >
+                            <div className="text-sm">{num} Votes</div>
+                            <div className={`text-xs ${isSelected ? "text-white/80" : "text-[#5B5F85]"}`}>
+                              GHS {(num * unitPriceGhs).toFixed(2)}
+                            </div>
+                          </button>
+                        );
+                      })}
                 </div>
               </div>
 

@@ -207,6 +207,7 @@ export function ContestantTrackerClient({ tracker }: { tracker: ContestantTracke
           }}
           eventName={event.name}
           unitPriceGhs={category.unitPriceMinor / 100}
+          packages={category.packages}
           onClose={() => setVotingOpen(false)}
           onSuccess={() => setVotingOpen(false)}
         />

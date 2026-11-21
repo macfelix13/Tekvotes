@@ -399,6 +399,7 @@ export function EventClient({ event, initialCode }: { event: PublicEventDetail; 
           contestant={drawerContestant}
           eventName={event.name}
           unitPriceGhs={selected.unitPriceMinor / 100}
+          packages={event.categories.find((c) => c.id === selected.categoryId)?.packages}
           onClose={() => setSelected(null)}
           onSuccess={() => setSelected(null)}
         />
