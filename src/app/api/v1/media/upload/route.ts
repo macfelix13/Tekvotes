@@ -63,7 +63,8 @@ export async function POST(req: NextRequest) {
     }
 
     const orgParsed = z.string().uuid("Invalid organizationId").safeParse(orgIdRaw);
-    if (!orgParsed.success) {
+    const isPlatformScope = orgIdRaw === "platform";
+    if (!orgParsed.success && !isPlatformScope) {
       return NextResponse.json(
         { error: "INVALID_ORGANIZATION", message: "Valid organizationId is required." },
         { status: 400 }
@@ -77,7 +78,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const auth = await requireApiOrgMember(orgParsed.data);
+    const auth = isPlatformScope
+      ? await (await import("@/lib/auth")).requireApiSuperAdmin()
+      : await requireApiOrgMember(orgParsed.data!);
     if (!auth.ok) return auth.response;
 
     if (file.size <= 0 || file.size > MAX_BYTES) {
@@ -96,7 +99,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const objectPath = `${orgParsed.data}/${Date.now()}-${randomUUID()}.${detected.ext}`;
+    const folder = isPlatformScope ? "platform" : orgParsed.data!;
+    const objectPath = `${folder}/${Date.now()}-${randomUUID()}.${detected.ext}`;
     const admin = createAdminClient();
 
     const { error: uploadErr } = await admin.storage

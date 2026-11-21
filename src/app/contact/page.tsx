@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Navbar } from "@/components/navigation/Navbar";
 import { Reveal } from "@/components/ui/Reveal";
 import { MessageCircle, Mail, MapPin, Send, CheckCircle2, AlertCircle } from "lucide-react";
@@ -12,6 +12,18 @@ export default function ContactPage() {
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
   const [status, setStatus] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
+  const [supportEmail, setSupportEmail] = useState("frametek93@gmail.com");
+  const [supportAddress, setSupportAddress] = useState("Accra Digital Centre, Ring Road West, Accra, Ghana.");
+
+  useEffect(() => {
+    fetch("/api/v1/admin/cms")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d?.settings?.supportEmail) setSupportEmail(d.settings.supportEmail);
+        if (d?.settings?.supportAddress) setSupportAddress(d.settings.supportAddress);
+      })
+      .catch(() => {});
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -77,17 +89,17 @@ export default function ContactPage() {
               <h3 className="font-heading font-bold text-base text-[#0E1030]">Email Desk</h3>
               <p className="text-xs text-[#5B5F85]">Official inquiries &amp; partnership applications.</p>
               <a
-                href="mailto:frametek93@gmail.com"
+                href={`mailto:${supportEmail}`}
                 className="block font-mono text-xs font-bold text-[#0E1030] hover:text-[#4B35E0] pt-1"
               >
-                frametek93@gmail.com
+                {supportEmail}
               </a>
             </div>
 
             <div className="bg-white p-6 rounded-2xl border border-[#D9DBEA] shadow-xs space-y-2">
               <MapPin className="w-6 h-6 text-[#F2A900]" />
               <h3 className="font-heading font-bold text-base text-[#0E1030]">Headquarters</h3>
-              <p className="text-xs text-[#5B5F85]">Accra Digital Centre, Ring Road West, Accra, Ghana.</p>
+              <p className="text-xs text-[#5B5F85]">{supportAddress}</p>
             </div>
           </div>
           </Reveal>

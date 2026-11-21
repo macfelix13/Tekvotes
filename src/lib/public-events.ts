@@ -131,11 +131,18 @@ export interface PublicMarqueeItem {
 export async function listPublicMarqueeItems(events: PublicEventSummary[]): Promise<PublicMarqueeItem[]> {
   await connection();
   const db = anon();
-  const { data: sponsors } = await db
-    .from("sponsors")
-    .select("id, name, tier, logo_public_id, website_url")
-    .order("sort_order", { ascending: true })
-    .limit(12);
+  const [{ data: sponsors }, { data: cmsItems }] = await Promise.all([
+    db
+      .from("sponsors")
+      .select("id, name, tier, logo_public_id, website_url")
+      .order("sort_order", { ascending: true })
+      .limit(12),
+    db
+      .from("platform_marquee_items")
+      .select("id, name, subtitle, badge, logo_url, website_url")
+      .eq("active", true)
+      .order("sort_order", { ascending: true }),
+  ]);
 
   const eventItems: PublicMarqueeItem[] = events.map((e) => ({
     id: `event-${e.id}`,
@@ -155,53 +162,16 @@ export async function listPublicMarqueeItems(events: PublicEventSummary[]): Prom
     href: (s.website_url as string | null) || undefined,
   }));
 
-  const partnerItems: PublicMarqueeItem[] = [
-    {
-      id: "partner-paystack",
-      name: "Paystack",
-      subtitle: "Payment Infrastructure",
-      badge: "Partner",
-      logoUrl: null,
-    },
-    {
-      id: "partner-mtn-momo",
-      name: "MTN MoMo",
-      subtitle: "Mobile Money Partner",
-      badge: "Partner",
-      logoUrl: null,
-    },
-    {
-      id: "partner-telecel-cash",
-      name: "Telecel Cash",
-      subtitle: "Mobile Money Partner",
-      badge: "Partner",
-      logoUrl: null,
-    },
-    {
-      id: "partner-at-money",
-      name: "AT Money",
-      subtitle: "Mobile Money Partner",
-      badge: "Partner",
-      logoUrl: null,
-    },
-    {
-      id: "partner-visa-mastercard",
-      name: "Visa & Mastercard",
-      subtitle: "Global Card Checkout",
-      badge: "Partner",
-      logoUrl: null,
-    },
-    {
-      id: "partner-frametek",
-      name: "FrameTek Ghana",
-      subtitle: "Technology Partner",
-      badge: "Partner",
-      logoUrl: null,
-      href: "https://frametekgh.com",
-    },
-  ];
+  const cmsPartnerItems: PublicMarqueeItem[] = (cmsItems ?? []).map((p) => ({
+    id: `cms-${String(p.name).toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${String(p.id).slice(0, 6)}`,
+    name: String(p.name),
+    subtitle: String(p.subtitle || ""),
+    badge: (p.badge as "Event" | "Sponsor" | "Partner") || "Partner",
+    logoUrl: (p.logo_url as string | null) ?? null,
+    href: (p.website_url as string | null) || undefined,
+  }));
 
-  return [...eventItems, ...sponsorItems, ...partnerItems];
+  return [...eventItems, ...sponsorItems, ...cmsPartnerItems];
 }
 
 export async function listPublicEvents(): Promise<PublicEventSummary[]> {

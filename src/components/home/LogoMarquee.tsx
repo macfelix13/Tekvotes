@@ -2,20 +2,22 @@ import Link from "next/link";
 import type { PublicMarqueeItem } from "@/lib/public-events";
 import { Trophy, ShieldCheck, Sparkles, Award } from "lucide-react";
 
-const PARTNER_STYLES: Record<
-  string,
-  { bg: string; text: string; abbr: string }
-> = {
-  "partner-paystack": { bg: "bg-[#00C3F7]/15 border-[#00C3F7]/30", text: "text-[#0099C4]", abbr: "PS" },
-  "partner-mtn-momo": { bg: "bg-[#FFCC00]/25 border-[#FFCC00]/50", text: "text-[#0E1030]", abbr: "MTN" },
-  "partner-telecel-cash": { bg: "bg-[#E60000]/12 border-[#E60000]/30", text: "text-[#E60000]", abbr: "TC" },
-  "partner-at-money": { bg: "bg-[#0055A5]/15 border-[#0055A5]/30", text: "text-[#0055A5]", abbr: "AT" },
-  "partner-visa-mastercard": { bg: "bg-[#1A1F71]/12 border-[#1A1F71]/30", text: "text-[#1A1F71]", abbr: "V/M" },
-  "partner-frametek": { bg: "bg-[#4B35E0]/12 border-[#4B35E0]/30", text: "text-[#4B35E0]", abbr: "FT" },
-};
+const PARTNER_STYLES: Array<{
+  match: RegExp;
+  bg: string;
+  text: string;
+  abbr: string;
+}> = [
+  { match: /paystack/i, bg: "bg-[#00C3F7]/15 border-[#00C3F7]/30", text: "text-[#0099C4]", abbr: "PS" },
+  { match: /mtn/i, bg: "bg-[#FFCC00]/25 border-[#FFCC00]/50", text: "text-[#0E1030]", abbr: "MTN" },
+  { match: /telecel/i, bg: "bg-[#E60000]/12 border-[#E60000]/30", text: "text-[#E60000]", abbr: "TC" },
+  { match: /^at\b|airtel/i, bg: "bg-[#0055A5]/15 border-[#0055A5]/30", text: "text-[#0055A5]", abbr: "AT" },
+  { match: /visa|mastercard/i, bg: "bg-[#1A1F71]/12 border-[#1A1F71]/30", text: "text-[#1A1F71]", abbr: "V/M" },
+  { match: /frametek/i, bg: "bg-[#4B35E0]/12 border-[#4B35E0]/30", text: "text-[#4B35E0]", abbr: "FT" },
+];
 
 function MarqueeCard({ item }: { item: PublicMarqueeItem }) {
-  const partnerStyle = PARTNER_STYLES[item.id];
+  const partnerStyle = PARTNER_STYLES.find((p) => p.match.test(item.name));
   const badgeStyle =
     item.badge === "Event"
       ? "bg-[#E8E5FD] text-[#4B35E0]"
@@ -79,7 +81,15 @@ function MarqueeCard({ item }: { item: PublicMarqueeItem }) {
   return <div className="shrink-0">{content}</div>;
 }
 
-export function LogoMarquee({ items }: { items: PublicMarqueeItem[] }) {
+export function LogoMarquee({
+  items,
+  heading = "Trusted Events, Official Sponsors & Payment Partners",
+  subheading = "Powering verified digital competitions & instant MoMo voting across Ghana",
+}: {
+  items: PublicMarqueeItem[];
+  heading?: string;
+  subheading?: string;
+}) {
   if (items.length === 0) return null;
 
   // Duplicate items twice so the -50% infinite loop is seamless on wide screens
@@ -94,11 +104,9 @@ export function LogoMarquee({ items }: { items: PublicMarqueeItem[] }) {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <div className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#4B35E0]">
           <Sparkles className="w-3.5 h-3.5" />
-          <span>Trusted Events, Official Sponsors &amp; Payment Partners</span>
+          <span>{heading}</span>
         </div>
-        <span className="text-xs text-[#5B5F85]">
-          Powering verified digital competitions &amp; instant MoMo voting across Ghana
-        </span>
+        <span className="text-xs text-[#5B5F85]">{subheading}</span>
       </div>
 
       <div className="relative">

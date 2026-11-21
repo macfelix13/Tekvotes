@@ -13,6 +13,8 @@ import {
   EventProfileModal,
   type EditableEventProfile,
 } from "@/components/admin/EventProfileModal";
+import { AdminCmsPanel } from "@/components/admin/AdminCmsPanel";
+import type { PlatformCmsSettings, PlatformMarqueeItemRow } from "@/lib/cms";
 import {
   ShieldCheck,
   Building2,
@@ -35,6 +37,7 @@ import {
   Search,
   User,
   Download,
+  Sliders,
 } from "lucide-react";
 
 export interface AdminEventFundRow {
@@ -146,6 +149,8 @@ interface AdminConsoleProps {
   categories: AdminCategoryRow[];
   contestants: AdminContestantRow[];
   settlements: AdminSettlementRow[];
+  cmsSettings: PlatformCmsSettings;
+  marqueeItems: PlatformMarqueeItemRow[];
   totals: {
     grossCollectedMinor: number;
     commissionMinor: number;
@@ -166,10 +171,12 @@ export function AdminConsoleClient({
   categories,
   contestants,
   settlements,
+  cmsSettings,
+  marqueeItems,
   totals,
 }: AdminConsoleProps) {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<"treasury" | "contestants" | "approvals" | "refunds">("treasury");
+  const [activeTab, setActiveTab] = useState<"treasury" | "contestants" | "approvals" | "refunds" | "cms">("treasury");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [notice, setNotice] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
 
@@ -535,6 +542,11 @@ export function AdminConsoleClient({
                   id: "refunds",
                   label: `Post-Event Uncredited Orders (${uncreditedOrders.length})`,
                   Icon: RotateCcw,
+                },
+                {
+                  id: "cms",
+                  label: "Site CMS & Marquee Logos",
+                  Icon: Sliders,
                 },
               ] as const
             ).map(({ id, label, Icon }) => (
@@ -1328,6 +1340,14 @@ export function AdminConsoleClient({
                 </div>
               )}
             </div>
+          )}
+
+          {activeTab === "cms" && (
+            <AdminCmsPanel
+              initialSettings={cmsSettings}
+              initialMarqueeItems={marqueeItems}
+              onNotice={setNotice}
+            />
           )}
         </div>
       </main>

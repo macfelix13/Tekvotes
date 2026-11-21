@@ -4,6 +4,7 @@ import { HomeSearch } from "@/components/search/HomeSearch";
 import { LogoMarquee } from "@/components/home/LogoMarquee";
 import { Reveal } from "@/components/ui/Reveal";
 import { listPublicEvents, getPublicEvent, listPublicMarqueeItems } from "@/lib/public-events";
+import { getPlatformCmsSettings } from "@/lib/cms";
 import {
   ArrowRight,
   Search,
@@ -25,16 +26,29 @@ const formatType = (eventType: string) => {
 
 export default async function HomePage() {
   const liveEvents = await listPublicEvents();
-  const [featuredDetail, marqueeItems] = await Promise.all([
+  const [featuredDetail, marqueeItems, cms] = await Promise.all([
     (liveEvents.find((e) => e.votingOpen) ?? liveEvents[0])
       ? getPublicEvent((liveEvents.find((e) => e.votingOpen) ?? liveEvents[0])!.slug)
       : Promise.resolve(null),
     listPublicMarqueeItems(liveEvents),
+    getPlatformCmsSettings(),
   ]);
   const featuredTop = (featuredDetail?.entries ?? []).slice(0, 2);
 
   return (
     <div className="min-h-screen flex flex-col bg-[#F6F7FC]">
+      {cms.announcementEnabled && cms.announcementText ? (
+        <div className="bg-[#F2A900] text-[#0E1030] px-4 py-2 text-center text-xs font-bold">
+          {cms.announcementLink ? (
+            <Link href={cms.announcementLink} className="hover:underline inline-flex items-center gap-1.5">
+              <span>{cms.announcementText}</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          ) : (
+            <span>{cms.announcementText}</span>
+          )}
+        </div>
+      ) : null}
       <Navbar />
 
       <main className="flex-1">
@@ -50,11 +64,11 @@ export default async function HomePage() {
             <div className="grid lg:grid-cols-12 gap-12 items-center">
               <div className="lg:col-span-7 space-y-6 text-center lg:text-left animate-hero-in">
                 <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight leading-[1.15] text-white">
-                  Cast Your Vote for Ghana&apos;s Next <span className="text-[#F2A900]">Champions</span>
+                  {cms.heroTitle} <span className="text-[#F2A900]">{cms.heroHighlight}</span>
                 </h1>
 
                 <p className="text-base sm:text-lg text-white/80 max-w-2xl mx-auto lg:mx-0 leading-relaxed font-normal">
-                  Instant, transparent and fraud-free digital voting for awards, pageants, and talent competitions. Pay securely with MTN MoMo, Telecel Cash, and AT Money.
+                  {cms.heroSubtitle}
                 </p>
 
                 <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4 pt-2">
@@ -62,7 +76,7 @@ export default async function HomePage() {
                     href="/competitions"
                     className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-7 py-4 rounded-xl bg-[#4B35E0] text-white font-semibold text-base hover:bg-[#3B28B8] shadow-lg shadow-[#4B35E0]/30 transition-all"
                   >
-                    Browse Active Competitions
+                    {cms.heroPrimaryCta}
                     <ArrowRight className="w-4 h-4" />
                   </Link>
 
@@ -70,7 +84,7 @@ export default async function HomePage() {
                     href="/apply"
                     className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-7 py-4 rounded-xl border border-white/20 bg-white/5 text-white font-semibold text-base hover:bg-white/10 transition-all backdrop-blur-xs"
                   >
-                    Host an Event
+                    {cms.heroSecondaryCta}
                   </Link>
                 </div>
               </div>
@@ -79,7 +93,7 @@ export default async function HomePage() {
               <div className="lg:col-span-5 relative space-y-4 animate-hero-in" style={{ animationDelay: "120ms" }}>
                 <div className="relative mx-auto max-w-md rounded-3xl overflow-hidden border border-white/15 shadow-2xl bg-[#1A1D47]">
                   <img
-                    src="/images/hero-voter.jpg"
+                    src={cms.heroImageUrl || "/images/hero-voter.jpg"}
                     alt="Excited TekVotes supporter voting on mobile"
                     className="w-full h-56 sm:h-64 object-cover object-top"
                   />
@@ -170,7 +184,13 @@ export default async function HomePage() {
         <HomeSearch />
 
         {/* Events, Sponsors & Partners Marquee */}
-        <LogoMarquee items={marqueeItems} />
+        {cms.marqueeEnabled ? (
+          <LogoMarquee
+            items={marqueeItems}
+            heading={cms.marqueeHeading}
+            subheading={cms.marqueeSubheading}
+          />
+        ) : null}
 
         {/* Voting Process: How to Vote for a Contestant (Screenshots 3 reference) */}
         <section className="py-20 bg-white">
@@ -336,11 +356,11 @@ export default async function HomePage() {
                 </div>
 
                 <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-[#0E1030] leading-[1.2]">
-                  Join our platform as an organiser and create your events for voting and ticketing
+                  {cms.organiserHeading}
                 </h2>
 
                 <p className="text-base sm:text-lg text-[#5B5F85] leading-relaxed">
-                  All you need to do is to create an account and verify your email. That&apos;s it. Your account is ready to be used with comprehensive category setups, custom vote pricing, and real-time bank settlements.
+                  {cms.organiserDescription}
                 </p>
 
                 <div className="flex flex-wrap items-center gap-4 pt-2">
@@ -371,11 +391,11 @@ export default async function HomePage() {
                     </span>
 
                     <h3 className="text-2xl sm:text-3xl font-extrabold text-white leading-tight">
-                      It&apos;s an e-voting platform where Organisers create and run their award & pageant events with ease
+                      {cms.aboutHeading}
                     </h3>
 
                     <p className="text-sm sm:text-base text-white/90 leading-relaxed">
-                      All they have to do is create an account and verify their email address, and they are ready to start using our platform.
+                      {cms.aboutDescription}
                     </p>
 
                     <div className="pt-4 border-t border-white/20 space-y-3 text-xs sm:text-sm text-white/80">
@@ -407,7 +427,7 @@ export default async function HomePage() {
             <div className="col-span-2 md:col-span-1 space-y-3">
               <span className="font-heading font-extrabold text-2xl text-white">TekVotes</span>
               <p className="text-xs text-[#5B5F85] leading-relaxed">
-                Ghana&apos;s premier multi-tenant digital competition management and voting infrastructure.
+                {cms.footerTagline}
               </p>
             </div>
             <div>
@@ -437,7 +457,7 @@ export default async function HomePage() {
           </div>
 
           <div className="pt-8 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-[#5B5F85]">
-            <p>© 2026 TekVotes Ghana Ltd. All rights reserved.</p>
+            <p>{cms.footerCopyright}</p>
             <p>Developed by <a href="https://frametekgh.com">FrameTek Ghana</a>.</p>
           </div>
         </div>

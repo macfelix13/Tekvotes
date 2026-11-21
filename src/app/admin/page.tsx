@@ -13,6 +13,7 @@ import {
   type AdminSettlementRow,
   type AdminUncreditedOrderRow,
 } from "./AdminConsoleClient";
+import { mapCmsRow, type PlatformMarqueeItemRow } from "@/lib/cms";
 import { ShieldAlert } from "lucide-react";
 
 function maskPhone(raw: string | null | undefined): string {
@@ -69,6 +70,8 @@ export default async function SuperAdminPage() {
     { data: socialRows },
     { data: settleReqRows },
     { data: brandingRows },
+    { data: cmsRow },
+    { data: marqueeRows },
   ] = await Promise.all([
     admin.from("v_event_funds").select("*"),
     admin
@@ -99,6 +102,8 @@ export default async function SuperAdminPage() {
     admin.from("contestant_social_links").select("contestant_id, platform, url").order("sort_order"),
     admin.rpc("app_list_settlement_requests", { p_org_id: null }),
     admin.from("branding_settings").select("event_id, banner_public_id"),
+    admin.from("platform_cms_settings").select("*").eq("id", 1).maybeSingle(),
+    admin.from("platform_marquee_items").select("*").order("sort_order", { ascending: true }),
   ]);
 
   const bannerByEventId = new Map((brandingRows ?? []).map((b) => [b.event_id as string, (b.banner_public_id as string | null) ?? ""]));
@@ -304,6 +309,18 @@ export default async function SuperAdminPage() {
     closedAvailableMinor: eventFunds.reduce((acc, e) => acc + e.availableMinor, 0),
   };
 
+  const cmsSettings = mapCmsRow(cmsRow as Record<string, unknown> | null);
+  const marqueeItems: PlatformMarqueeItemRow[] = (marqueeRows ?? []).map((m) => ({
+    id: String(m.id),
+    name: String(m.name),
+    subtitle: String(m.subtitle ?? ""),
+    badge: (m.badge as "Event" | "Sponsor" | "Partner") || "Partner",
+    logoUrl: String(m.logo_url ?? ""),
+    websiteUrl: String(m.website_url ?? ""),
+    sortOrder: Number(m.sort_order ?? 50),
+    active: Boolean(m.active),
+  }));
+
   return (
     <AdminConsoleClient
       adminEmail={user.email ?? "super_admin"}
@@ -314,6 +331,8 @@ export default async function SuperAdminPage() {
       categories={categories}
       contestants={contestants}
       settlements={settlements}
+      cmsSettings={cmsSettings}
+      marqueeItems={marqueeItems}
       totals={totals}
     />
   );
