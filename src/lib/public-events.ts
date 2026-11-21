@@ -46,8 +46,49 @@ export interface PublicEventDetail extends Omit<PublicEventSummary, "contestants
   description: string | null;
   venue: string | null;
   opensAt: string | null;
-  categories: { id: string; name: string; unitPriceMinor: number; resultsVisible: boolean; isFinal: boolean }[];
+  categories: {
+    id: string;
+    name: string;
+    unitPriceMinor: number;
+    resultsVisible: boolean;
+    liveVisibility: "ranks_only" | "counts" | "percent";
+    contestantResultsVisible: boolean;
+    isFinal: boolean;
+  }[];
   entries: PublicCategoryEntry[];
+}
+
+export interface ContestantTrackerDetail {
+  event: {
+    id: string;
+    slug: string;
+    name: string;
+    organizerName: string;
+    votingOpen: boolean;
+    votingStatus: string;
+    bannerUrl: string | null;
+  };
+  category: {
+    id: string;
+    name: string;
+    unitPriceMinor: number;
+    contestantResultsVisible: boolean;
+    publicResultsVisible: boolean;
+    isFinal: boolean;
+  };
+  contestant: {
+    id: string; // category_entries.id
+    code: string;
+    contestantNumber: number;
+    name: string;
+    bio: string | null;
+    photoUrl: string | null;
+    socials: { platform: string; url: string }[];
+    votes: number | null;
+    rank: number | null;
+    totalCategoryVotes: number | null;
+    totalContestantsInCategory: number;
+  };
 }
 
 function env(name: string): string {
@@ -129,7 +170,7 @@ export async function getPublicEvent(slug: string): Promise<PublicEventDetail | 
   const [{ data: cats, error: catErr }, { data: catEntries, error: ceErr }, { data: branding }] = await Promise.all([
     db
       .from("event_categories")
-      .select("id, name, unit_price_minor, results_state, sort_order")
+      .select("id, name, unit_price_minor, results_state, live_visibility, contestant_results_visible, sort_order")
       .eq("event_id", event.id)
       .order("sort_order"),
     db
@@ -159,6 +200,8 @@ export async function getPublicEvent(slug: string): Promise<PublicEventDetail | 
     name: c.name as string,
     unitPriceMinor: Number(c.unit_price_minor),
     resultsVisible: c.results_state === "live" || c.results_state === "final",
+    liveVisibility: (c.live_visibility as "ranks_only" | "counts" | "percent") ?? "counts",
+    contestantResultsVisible: c.contestant_results_visible !== false,
     isFinal: c.results_state === "final",
   }));
   const catById = new Map(categories.map((c) => [c.id, c]));
@@ -272,5 +315,79 @@ export async function getPublicEvent(slug: string): Promise<PublicEventDetail | 
     bannerUrl: (branding?.banner_public_id as string | null) ?? null,
     categories,
     entries,
+  };
+}
+
+export async function getContestantTracker(
+  slug: string,
+  code: string
+): Promise<ContestantTrackerDetail | null> {
+  const detail = await getPublicEvent(slug);
+  if (!detail) return null;
+
+  const target = detail.entries.find((e) => e.code.toLowerCase() === code.trim().toLowerCase());
+  if (!target) return null;
+
+  const cat = detail.categories.find((c) => c.id === target.categoryId);
+  if (!cat) return null;
+
+  const svc = service();
+  const catEntryIds = detail.entries.filter((e) => e.categoryId === cat.id).map((e) => e.id);
+
+  let votes: number | null = null;
+  let rank: number | null = null;
+  let totalCategoryVotes: number | null = null;
+
+  if (cat.contestantResultsVisible) {
+    const { data: tallies } =
+      catEntryIds.length > 0
+        ? await svc
+            .from("category_entry_tallies")
+            .select("category_entry_id, total_votes")
+            .in("category_entry_id", catEntryIds)
+        : { data: [] };
+
+    const voteMap = new Map((tallies ?? []).map((t) => [t.category_entry_id as string, Number(t.total_votes)]));
+    const ranked = catEntryIds
+      .map((id) => ({ id, votes: voteMap.get(id) ?? 0 }))
+      .sort((a, b) => b.votes - a.votes);
+
+    totalCategoryVotes = ranked.reduce((acc, r) => acc + r.votes, 0);
+    const idx = ranked.findIndex((r) => r.id === target.id);
+    votes = voteMap.get(target.id) ?? 0;
+    rank = idx >= 0 ? idx + 1 : null;
+  }
+
+  return {
+    event: {
+      id: detail.id,
+      slug: detail.slug,
+      name: detail.name,
+      organizerName: detail.organizerName,
+      votingOpen: detail.votingOpen,
+      votingStatus: detail.votingStatus,
+      bannerUrl: detail.bannerUrl,
+    },
+    category: {
+      id: cat.id,
+      name: cat.name,
+      unitPriceMinor: cat.unitPriceMinor,
+      contestantResultsVisible: cat.contestantResultsVisible,
+      publicResultsVisible: cat.resultsVisible,
+      isFinal: cat.isFinal,
+    },
+    contestant: {
+      id: target.id,
+      code: target.code,
+      contestantNumber: target.contestantNumber,
+      name: target.name,
+      bio: target.bio,
+      photoUrl: target.photoUrl,
+      socials: target.socials,
+      votes,
+      rank,
+      totalCategoryVotes,
+      totalContestantsInCategory: catEntryIds.length,
+    },
   };
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { Navbar } from "@/components/navigation/Navbar";
 import { Reveal } from "@/components/ui/Reveal";
 import { VotingDrawer, type Contestant } from "@/components/voting/VotingDrawer";
@@ -255,25 +256,37 @@ export function EventClient({ event, initialCode }: { event: PublicEventDetail; 
                       <div className="flex items-center justify-between text-xs text-[#5B5F85]">
                         <span>GHS {(c.unitPriceMinor / 100).toFixed(2)} / vote</span>
                         <span className="font-heading font-extrabold text-[#4B35E0] text-sm">
-                          {c.votes == null ? "Results hidden" : `${c.votes.toLocaleString()} votes`}
+                          {c.votes == null
+                            ? "Results hidden"
+                            : event.categories.find((cat) => cat.id === c.categoryId)?.liveVisibility === "ranks_only"
+                            ? "Ranked Live"
+                            : `${c.votes.toLocaleString()} votes`}
                         </span>
                       </div>
 
-                      {event.votingOpen ? (
-                        <button
-                          type="button"
-                          onClick={() => setSelected(c)}
-                          className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#4B35E0] text-white font-semibold text-xs hover:bg-[#3B28B8] shadow-sm transition-all cursor-pointer"
+                      <div className="flex items-center gap-2">
+                        {event.votingOpen ? (
+                          <button
+                            type="button"
+                            onClick={() => setSelected(c)}
+                            className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#4B35E0] text-white font-semibold text-xs hover:bg-[#3B28B8] shadow-sm transition-all cursor-pointer"
+                          >
+                            <Flame className="w-3.5 h-3.5 fill-[#F2A900] text-[#F2A900]" />
+                            <span>Vote Now</span>
+                          </button>
+                        ) : (
+                          <div className="flex-1 inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-[#F6F7FC] border border-[#D9DBEA] text-[#5B5F85] font-semibold text-xs">
+                            <Lock className="w-3.5 h-3.5" />
+                            <span>Voting Locked</span>
+                          </div>
+                        )}
+                        <Link
+                          href={`/competitions/${event.slug}/contestants/${encodeURIComponent(c.code)}`}
+                          className="px-3 py-2.5 rounded-xl border border-[#D9DBEA] bg-white text-[#0E1030] text-xs font-semibold hover:border-[#4B35E0] hover:text-[#4B35E0] shrink-0"
                         >
-                          <Flame className="w-3.5 h-3.5 fill-[#F2A900] text-[#F2A900]" />
-                          <span>Vote Now</span>
-                        </button>
-                      ) : (
-                        <div className="w-full inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-[#F6F7FC] border border-[#D9DBEA] text-[#5B5F85] font-semibold text-xs">
-                          <Lock className="w-3.5 h-3.5" />
-                          <span>Voting Locked</span>
-                        </div>
-                      )}
+                          Track
+                        </Link>
+                      </div>
                     </div>
                     </div>
                   </Reveal>
@@ -300,7 +313,7 @@ export function EventClient({ event, initialCode }: { event: PublicEventDetail; 
                     </div>
                     <h2 className="font-heading font-extrabold text-2xl text-[#0E1030] mt-0.5">{cat.name}</h2>
                   </div>
-                  {cat.resultsVisible ? (
+                  {cat.resultsVisible && cat.liveVisibility === "counts" ? (
                     <div className="text-right">
                       <span className="text-xs text-[#5B5F85] block">Total votes</span>
                       <span className="font-heading font-extrabold text-lg text-[#0E1030]">{total.toLocaleString()}</span>
@@ -336,7 +349,10 @@ export function EventClient({ event, initialCode }: { event: PublicEventDetail; 
                                 <p className="font-heading font-bold text-sm text-[#0E1030]">{c.name}</p>
                               </div>
                               <div className="w-32 sm:w-48 bg-[#D9DBEA] h-2 rounded-full overflow-hidden mt-1.5">
-                                <div className="bg-[#4B35E0] h-full rounded-full" style={{ width: `${percent}%` }} />
+                                <div
+                                  className="bg-[#4B35E0] h-full rounded-full"
+                                  style={{ width: cat.liveVisibility === "ranks_only" ? "100%" : `${percent}%` }}
+                                />
                               </div>
                             </div>
                           </div>
@@ -351,6 +367,12 @@ export function EventClient({ event, initialCode }: { event: PublicEventDetail; 
                                   {c.officialResult.judgeScore.toFixed(1)} ({(c.votes ?? 0).toLocaleString()} votes)
                                 </span>
                               </>
+                            ) : cat.liveVisibility === "ranks_only" ? (
+                              <span className="text-xs font-bold text-[#4B35E0]">Rank #{index + 1}</span>
+                            ) : cat.liveVisibility === "percent" ? (
+                              <span className="font-heading font-extrabold text-[#0E1030] text-base block">
+                                {percent}%
+                              </span>
                             ) : (
                               <>
                                 <span className="font-heading font-extrabold text-[#0E1030] text-base block">

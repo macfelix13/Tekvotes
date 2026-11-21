@@ -57,6 +57,7 @@ export interface OrgCategoryRow {
   unitPriceMinor: number;
   resultsState: "hidden" | "live" | "final";
   liveVisibility: "ranks_only" | "counts" | "percent";
+  contestantResultsVisible: boolean;
 }
 
 export interface OrgContestantRow {
@@ -160,6 +161,7 @@ export function OrgPortalClient({
   const activeCat = categories.find((c) => c.id === editCatId) ?? categories[0];
   const [visState, setVisState] = useState<"hidden" | "live" | "final">(activeCat?.resultsState ?? "live");
   const [visMode, setVisMode] = useState<"ranks_only" | "counts" | "percent">(activeCat?.liveVisibility ?? "counts");
+  const [visContestant, setVisContestant] = useState<boolean>(activeCat?.contestantResultsVisible ?? true);
 
   const handleSelectEditCategory = (catId: string) => {
     setEditCatId(catId);
@@ -167,6 +169,7 @@ export function OrgPortalClient({
     if (cat) {
       setVisState(cat.resultsState);
       setVisMode(cat.liveVisibility);
+      setVisContestant(cat.contestantResultsVisible);
     }
   };
 
@@ -349,6 +352,7 @@ export function OrgPortalClient({
           organizationId: org.id,
           resultsState: visState,
           liveVisibility: visMode,
+          contestantResultsVisible: visContestant,
         }),
       });
       const data = await res.json().catch(() => null);
@@ -655,6 +659,28 @@ export function OrgPortalClient({
                           {visMode === m.id ? <CheckCircle2 className="w-4 h-4 text-[#4B35E0]" /> : null}
                         </button>
                       ))}
+                    </div>
+
+                    <div className="space-y-2 pt-2 border-t border-[#D9DBEA]">
+                      <label className="block text-xs font-bold text-[#0E1030]">
+                        Contestant / Nominee Vote Tracker Visibility
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setVisContestant((prev) => !prev)}
+                        className={`w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer flex items-center justify-between ${
+                          visContestant
+                            ? "bg-[#E6F8F0] text-[#0F9D6B] border-[#0F9D6B]/40"
+                            : "bg-[#F6F7FC] text-[#5B5F85] border-[#D9DBEA]"
+                        }`}
+                      >
+                        <span>
+                          {visContestant
+                            ? "Nominees CAN track own votes & rank"
+                            : "Nominee vote totals are HIDDEN"}
+                        </span>
+                        <CheckCircle2 className={`w-4 h-4 ${visContestant ? "text-[#0F9D6B]" : "text-[#D9DBEA]"}`} />
+                      </button>
                     </div>
 
                     <button

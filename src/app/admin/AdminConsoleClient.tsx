@@ -100,7 +100,12 @@ export interface AdminUncreditedOrderRow {
 export interface AdminCategoryRow {
   id: string;
   eventId: string;
+  organizationId: string;
+  eventName: string;
   name: string;
+  resultsState: "hidden" | "live" | "final";
+  liveVisibility: "ranks_only" | "counts" | "percent";
+  contestantResultsVisible: boolean;
 }
 
 export interface AdminContestantRow {
@@ -163,6 +168,54 @@ export function AdminConsoleClient({
     Object.fromEntries(eventFunds.map((e) => [e.id, (e.commissionBps / 100).toFixed(1)]))
   );
   const [transferRefs, setTransferRefs] = useState<Record<string, string>>({});
+
+  const [visCatId, setVisCatId] = useState(categories[0]?.id ?? "");
+  const activeVisCat = categories.find((c) => c.id === visCatId) ?? categories[0];
+  const [visState, setVisState] = useState<"hidden" | "live" | "final">(activeVisCat?.resultsState ?? "live");
+  const [visMode, setVisMode] = useState<"ranks_only" | "counts" | "percent">(activeVisCat?.liveVisibility ?? "counts");
+  const [visContestant, setVisContestant] = useState<boolean>(activeVisCat?.contestantResultsVisible ?? true);
+
+  const handleSelectVisCat = (id: string) => {
+    setVisCatId(id);
+    const cat = categories.find((c) => c.id === id);
+    if (cat) {
+      setVisState(cat.resultsState);
+      setVisMode(cat.liveVisibility);
+      setVisContestant(cat.contestantResultsVisible);
+    }
+  };
+
+  const handleSaveCategoryVisibility = async () => {
+    if (!activeVisCat) return;
+    setBusyId("admin-vis");
+    setNotice(null);
+    try {
+      const res = await fetch(`/api/v1/org/categories/${activeVisCat.id}/visibility`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          organizationId: activeVisCat.organizationId,
+          resultsState: visState,
+          liveVisibility: visMode,
+          contestantResultsVisible: visContestant,
+        }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setNotice({ kind: "err", text: data?.message || "Failed to update visibility settings." });
+        return;
+      }
+      setNotice({
+        kind: "ok",
+        text: `Updated public & contestant visibility for "${activeVisCat.eventName} — ${activeVisCat.name}".`,
+      });
+      router.refresh();
+    } catch {
+      setNotice({ kind: "err", text: "Network error updating visibility." });
+    } finally {
+      setBusyId(null);
+    }
+  };
 
   const [contestantSearch, setContestantSearch] = useState("");
   const [contestantEventFilter, setContestantEventFilter] = useState("all");
@@ -855,7 +908,83 @@ export function AdminConsoleClient({
           )}
 
           {activeTab === "contestants" && (
-            <div className="bg-white rounded-2xl border border-[#D9DBEA] p-6 space-y-5 shadow-xs">
+            <div className="space-y-6">
+              {activeVisCat ? (
+                <div className="bg-white rounded-2xl border border-[#D9DBEA] p-6 shadow-xs space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#D9DBEA] pb-3">
+                    <div>
+                      <span className="text-xs font-bold uppercase text-[#4B35E0]">Rule OD-11 · Super Admin Controls</span>
+                      <h2 className="font-heading font-bold text-base text-[#0E1030]">
+                        Public &amp; Contestant Leaderboard Visibility
+                      </h2>
+                    </div>
+                    <select
+                      value={activeVisCat.id}
+                      onChange={(e) => handleSelectVisCat(e.target.value)}
+                      className="px-3 py-2 rounded-xl bg-[#F6F7FC] border border-[#D9DBEA] text-xs font-semibold text-[#0E1030]"
+                    >
+                      {categories.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.eventName} — {c.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="grid sm:grid-cols-3 gap-4 text-xs">
+                    <div>
+                      <label className="block font-bold text-[#5B5F85] uppercase mb-1.5">Public Results State</label>
+                      <select
+                        value={visState}
+                        onChange={(e) => setVisState(e.target.value as "hidden" | "live" | "final")}
+                        className="w-full px-3 py-2 rounded-xl bg-[#F6F7FC] border border-[#D9DBEA] text-[#0E1030] font-semibold"
+                      >
+                        <option value="live">Live (Public Visible)</option>
+                        <option value="hidden">Hidden (Public Hidden)</option>
+                        <option value="final">Final (Official Published)</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block font-bold text-[#5B5F85] uppercase mb-1.5">Public Display Mode</label>
+                      <select
+                        value={visMode}
+                        onChange={(e) => setVisMode(e.target.value as "ranks_only" | "counts" | "percent")}
+                        className="w-full px-3 py-2 rounded-xl bg-[#F6F7FC] border border-[#D9DBEA] text-[#0E1030] font-semibold"
+                      >
+                        <option value="counts">Exact Votes &amp; Ranks</option>
+                        <option value="percent">Percentage Share (%)</option>
+                        <option value="ranks_only">Ranks Only (Hide Counts)</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block font-bold text-[#5B5F85] uppercase mb-1.5">Contestant Tracker</label>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setVisContestant((p) => !p)}
+                          className={`flex-1 px-3 py-2 rounded-xl border font-bold text-left cursor-pointer ${
+                            visContestant
+                              ? "bg-[#E6F8F0] text-[#0F9D6B] border-[#0F9D6B]/40"
+                              : "bg-[#F6F7FC] text-[#5B5F85] border-[#D9DBEA]"
+                          }`}
+                        >
+                          {visContestant ? "Nominees Visible" : "Nominees Hidden"}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={busyId === "admin-vis"}
+                          onClick={() => void handleSaveCategoryVisibility()}
+                          className="px-4 py-2 rounded-xl bg-[#4B35E0] text-white font-bold hover:bg-[#3B28B8] disabled:opacity-50 cursor-pointer"
+                        >
+                          {busyId === "admin-vis" ? "..." : "Save"}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+
+              <div className="bg-white rounded-2xl border border-[#D9DBEA] p-6 space-y-5 shadow-xs">
               <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-[#D9DBEA] pb-4">
                 <div>
                   <span className="text-xs font-bold uppercase text-[#4B35E0]">Platform Roster Management</span>
@@ -964,6 +1093,7 @@ export function AdminConsoleClient({
                   </tbody>
                 </table>
               </div>
+            </div>
             </div>
           )}
 

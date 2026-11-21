@@ -7,6 +7,7 @@ const VisibilitySchema = z.object({
   organizationId: z.string().uuid("Invalid organization ID"),
   resultsState: z.enum(["hidden", "live", "final"]),
   liveVisibility: z.enum(["ranks_only", "counts", "percent"]),
+  contestantResultsVisible: z.boolean().optional(),
 });
 
 export async function PATCH(
@@ -27,17 +28,25 @@ export async function PATCH(
     );
   }
 
-  const { organizationId, resultsState, liveVisibility } = parsed.data;
+  const { organizationId, resultsState, liveVisibility, contestantResultsVisible } = parsed.data;
   const auth = await requireApiOrgMember(organizationId);
   if (!auth.ok) return auth.response;
 
   const admin = createAdminClient();
+  const updates: Record<string, unknown> = {
+    results_state: resultsState,
+    live_visibility: liveVisibility,
+  };
+  if (contestantResultsVisible !== undefined) {
+    updates.contestant_results_visible = contestantResultsVisible;
+  }
+
   const { data, error } = await admin
     .from("event_categories")
-    .update({ results_state: resultsState, live_visibility: liveVisibility })
+    .update(updates)
     .eq("id", id)
     .eq("organization_id", organizationId)
-    .select("id, results_state, live_visibility")
+    .select("id, results_state, live_visibility, contestant_results_visible")
     .maybeSingle();
 
   if (error) {

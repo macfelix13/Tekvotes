@@ -95,7 +95,7 @@ export default async function OrganiserPortalPage() {
         .order("created_at", { ascending: false }),
       admin
         .from("event_categories")
-        .select("id, event_id, name, unit_price_minor, results_state, live_visibility, sort_order")
+        .select("id, event_id, name, unit_price_minor, results_state, live_visibility, contestant_results_visible, sort_order")
         .eq("organization_id", activeOrg.id)
         .order("sort_order"),
       admin.from("v_event_funds").select("*").eq("organization_id", activeOrg.id),
@@ -195,6 +195,7 @@ export default async function OrganiserPortalPage() {
     unitPriceMinor: Number(c.unit_price_minor),
     resultsState: c.results_state as "hidden" | "live" | "final",
     liveVisibility: c.live_visibility as "ranks_only" | "counts" | "percent",
+    contestantResultsVisible: c.contestant_results_visible !== false,
   }));
 
   const totals = {

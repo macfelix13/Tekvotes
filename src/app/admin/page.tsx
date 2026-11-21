@@ -88,7 +88,7 @@ export default async function SuperAdminPage() {
       .select("id, reference, snapshot_amount_minor, snapshot_currency, created_at, events(name), voters(phone_e164)")
       .eq("status", "paid_uncredited")
       .order("created_at", { ascending: false }),
-    admin.from("event_categories").select("id, event_id, name").order("sort_order"),
+    admin.from("event_categories").select("id, event_id, organization_id, name, results_state, live_visibility, contestant_results_visible").order("sort_order"),
     admin
       .from("category_entries")
       .select(
@@ -202,7 +202,12 @@ export default async function SuperAdminPage() {
   const categories: AdminCategoryRow[] = (catRows ?? []).map((c) => ({
     id: c.id,
     eventId: c.event_id,
+    organizationId: c.organization_id,
+    eventName: eventMetaById.get(c.event_id)?.name ?? "Event",
     name: c.name,
+    resultsState: c.results_state as "hidden" | "live" | "final",
+    liveVisibility: c.live_visibility as "ranks_only" | "counts" | "percent",
+    contestantResultsVisible: c.contestant_results_visible !== false,
   }));
   const catNameById = new Map(categories.map((c) => [c.id, c.name]));
 
