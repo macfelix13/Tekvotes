@@ -430,7 +430,7 @@ export default async function HomePage() {
 
           <div className="pt-8 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-[#5B5F85]">
             <p>© 2026 TekVotes Ghana Ltd. All rights reserved.</p>
-            <p>Built with tamper-proof financial audit ledgers and Supabase RLS.</p>
+            <p>Developed by <a href="https://frametekgh.com">FrameTek Ghana</a>.</p>
           </div>
         </div>
       </footer>

@@ -34,7 +34,7 @@ export default function PricingPage() {
 
             <div className="bg-[#0E1030] text-white rounded-3xl p-6 shadow-xl space-y-4">
               <span className="text-xs font-bold uppercase text-[#F2A900]">2 · Platform Commission</span>
-              <div className="font-heading font-extrabold text-3xl text-white">10% on Base Votes</div>
+              <div className="font-heading font-extrabold text-3xl text-white">10-35% on Base Votes</div>
               <p className="text-xs text-white/80 leading-relaxed">
                 Calculated strictly on the base vote value (<code className="font-mono text-[#F2A900]">snapshot_base_amount_minor</code>). Network processing fee surcharges are transparently passed to the voter at checkout.
               </p>
