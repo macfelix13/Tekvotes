@@ -50,7 +50,9 @@ export interface AdminEventFundRow {
   eventType: string;
   description: string;
   venue: string;
+  eventDate: string | null;
   bannerUrl: string;
+  ticketFlyerUrl: string;
   orgName: string;
   approvalStatus: string;
   votingStatus: string;
@@ -744,7 +746,9 @@ export function AdminConsoleClient({
                                       eventType: ef.eventType,
                                       description: ef.description,
                                       venue: ef.venue,
+                                      eventDate: ef.eventDate,
                                       bannerUrl: ef.bannerUrl,
+                                      ticketFlyerUrl: ef.ticketFlyerUrl,
                                       votingOpensAt: ef.votingOpensAt,
                                       votingClosesAt: ef.votingClosesAt,
                                     })

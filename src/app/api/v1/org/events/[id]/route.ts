@@ -17,6 +17,7 @@ const PatchEventSchema = z.object({
     .optional(),
   description: z.string().trim().max(2000).optional().or(z.literal("")),
   venue: z.string().trim().max(200).optional().or(z.literal("")),
+  eventDate: z.string().datetime({ offset: true }).nullable().optional().or(z.literal("")),
   votingOpensAt: z.string().datetime({ offset: true }).nullable().optional().or(z.literal("")),
   votingClosesAt: z.string().datetime({ offset: true }).nullable().optional().or(z.literal("")),
   bannerUrl: z
@@ -24,6 +25,13 @@ const PatchEventSchema = z.object({
     .trim()
     .url("Banner URL must be valid")
     .refine((u) => u.startsWith("https://"), "Banner URL must use HTTPS")
+    .optional()
+    .or(z.literal("")),
+  ticketFlyerUrl: z
+    .string()
+    .trim()
+    .url("Ticket flyer URL must be valid")
+    .refine((u) => u.startsWith("https://"), "Ticket flyer URL must use HTTPS")
     .optional()
     .or(z.literal("")),
 });
@@ -61,13 +69,16 @@ export async function PATCH(
   const auth = await requireApiOrgMember(ev.organization_id);
   if (!auth.ok) return auth.response;
 
-  const { name, publicCode, eventType, description, venue, votingOpensAt, votingClosesAt, bannerUrl } = parsed.data;
+  const { name, publicCode, eventType, description, venue, eventDate, votingOpensAt, votingClosesAt, bannerUrl, ticketFlyerUrl } = parsed.data;
   const updates: Record<string, unknown> = {};
   if (name !== undefined) updates.name = name;
   if (publicCode !== undefined) updates.public_code = publicCode.toUpperCase();
   if (eventType !== undefined) updates.event_type = eventType;
   if (description !== undefined) updates.description = description.trim() || null;
   if (venue !== undefined) updates.venue = venue.trim() || null;
+  if (eventDate !== undefined) {
+    updates.event_date = eventDate ? new Date(eventDate).toISOString() : null;
+  }
   if (votingOpensAt !== undefined) {
     updates.voting_opens_at = votingOpensAt ? new Date(votingOpensAt).toISOString() : null;
   }
@@ -103,14 +114,16 @@ export async function PATCH(
     }
   }
 
-  if (bannerUrl !== undefined) {
-    const cleanBanner = bannerUrl.trim() || null;
+  if (bannerUrl !== undefined || ticketFlyerUrl !== undefined) {
+    const brandPatch: Record<string, unknown> = {
+      event_id: ev.id,
+      organization_id: ev.organization_id,
+    };
+    if (bannerUrl !== undefined) brandPatch.banner_public_id = bannerUrl.trim() || null;
+    if (ticketFlyerUrl !== undefined) brandPatch.ticket_flyer_public_id = ticketFlyerUrl.trim() || null;
+
     const { error: brandErr } = await admin.from("branding_settings").upsert(
-      {
-        event_id: ev.id,
-        organization_id: ev.organization_id,
-        banner_public_id: cleanBanner,
-      },
+      brandPatch,
       { onConflict: "event_id" }
     );
     if (brandErr) {

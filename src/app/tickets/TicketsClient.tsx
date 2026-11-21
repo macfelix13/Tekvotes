@@ -5,7 +5,20 @@ import Link from "next/link";
 import { Reveal } from "@/components/ui/Reveal";
 import { TicketCheckoutDrawer } from "@/components/tickets/TicketCheckoutDrawer";
 import type { PublicTicketedEvent } from "@/lib/public-events";
-import { Ticket, MapPin, Building2, Search, ShieldCheck, ArrowRight, Sparkles } from "lucide-react";
+import { Ticket, MapPin, Building2, Search, ShieldCheck, ArrowRight, Sparkles, Calendar } from "lucide-react";
+
+const formatEventDateTime = (iso: string | null) =>
+  iso
+    ? new Date(iso).toLocaleString("en-GB", {
+        weekday: "short",
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        timeZone: "Africa/Accra",
+      })
+    : "Date TBA";
 
 export function TicketsClient({ events }: { events: PublicTicketedEvent[] }) {
   const [searchInput, setSearchInput] = useState("");
@@ -73,10 +86,10 @@ export function TicketsClient({ events }: { events: PublicTicketedEvent[] }) {
               <Reveal key={ev.id} delayMs={Math.min(idx, 5) * 60}>
                 <div className="bg-white rounded-3xl overflow-hidden border border-[#D9DBEA] shadow-xs hover:shadow-xl transition-all flex flex-col group h-full">
                   <div className="relative aspect-[4/5] w-full bg-[#0E1030] overflow-hidden flex items-end p-5">
-                    {ev.bannerUrl ? (
+                    {ev.ticketFlyerUrl ? (
                       <>
                         <img
-                          src={ev.bannerUrl}
+                          src={ev.ticketFlyerUrl}
                           alt={ev.name}
                           className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                         />
@@ -88,12 +101,16 @@ export function TicketsClient({ events }: { events: PublicTicketedEvent[] }) {
                     </span>
                     <span className="relative z-10 absolute top-3.5 left-3.5 text-xs font-bold text-white px-3 py-1 rounded-full bg-[#4B35E0] shadow-xs inline-flex items-center gap-1">
                       <Ticket className="w-3.5 h-3.5" />
-                      {ev.tiers.length > 0 ? `${ev.tiers.length} Ticket Tier(s)` : "Event Page"}
+                      {ev.tiers.length > 0 ? `${ev.tiers.length} Ticket Tier(s)` : "Ticket Event"}
                     </span>
                   </div>
 
                   <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
                     <div className="space-y-2">
+                      <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-[#FDF3D6] text-[#C77700] text-xs font-bold">
+                        <Calendar className="w-3.5 h-3.5 shrink-0" />
+                        <span>{formatEventDateTime(ev.eventDate)}</span>
+                      </div>
                       <div className="flex items-center justify-between text-xs text-[#5B5F85]">
                         <span className="inline-flex items-center gap-1.5">
                           <Building2 className="w-3.5 h-3.5" /> {ev.organizerName}

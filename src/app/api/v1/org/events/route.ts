@@ -19,6 +19,7 @@ const CreateEventSchema = z.object({
   unitPriceGhs: z.number().positive("Price must be greater than zero").max(50000).default(1),
   ticketTierName: z.string().trim().max(120).optional(),
   ticketPriceGhs: z.number().positive("Ticket price must be greater than zero").max(50000).optional(),
+  eventDate: z.string().datetime({ offset: true }).nullable().optional().or(z.literal("")),
   description: z.string().trim().max(2000).optional(),
   votingOpensAt: z.string().datetime({ offset: true }).nullable().optional().or(z.literal("")),
   votingClosesAt: z.string().datetime({ offset: true }).nullable().optional().or(z.literal("")),
@@ -27,6 +28,13 @@ const CreateEventSchema = z.object({
     .trim()
     .url("Banner URL must be valid")
     .refine((u) => u.startsWith("https://"), "Banner URL must use HTTPS")
+    .optional()
+    .or(z.literal("")),
+  ticketFlyerUrl: z
+    .string()
+    .trim()
+    .url("Ticket flyer URL must be valid")
+    .refine((u) => u.startsWith("https://"), "Ticket flyer URL must use HTTPS")
     .optional()
     .or(z.literal("")),
 });
@@ -60,19 +68,28 @@ export async function POST(req: NextRequest) {
     unitPriceGhs,
     ticketTierName,
     ticketPriceGhs,
+    eventDate,
     description,
     votingOpensAt,
     votingClosesAt,
     bannerUrl,
+    ticketFlyerUrl,
   } = parsed.data;
   const auth = await requireApiOrgMember(organizationId);
   if (!auth.ok) return auth.response;
 
   const opensIso = votingOpensAt ? new Date(votingOpensAt).toISOString() : null;
   const closesIso = votingClosesAt ? new Date(votingClosesAt).toISOString() : null;
+  const eventDateIso = eventDate ? new Date(eventDate).toISOString() : null;
   if (opensIso && closesIso && new Date(closesIso).getTime() <= new Date(opensIso).getTime()) {
     return NextResponse.json(
       { error: "INVALID_DATES", message: "Voting closing date/time must be after the opening date/time." },
+      { status: 400 }
+    );
+  }
+  if (eventType === "ticketed_event" && !eventDateIso) {
+    return NextResponse.json(
+      { error: "EVENT_DATE_REQUIRED", message: "Please specify the exact date and time for this ticketed event." },
       { status: 400 }
     );
   }
@@ -95,6 +112,7 @@ export async function POST(req: NextRequest) {
       name,
       description: description || null,
       event_type: eventType,
+      event_date: eventDateIso,
       voting_opens_at: opensIso,
       voting_closes_at: closesIso,
       publication_status: "published",
@@ -119,12 +137,14 @@ export async function POST(req: NextRequest) {
   }
 
   const cleanBanner = bannerUrl?.trim() || null;
-  if (cleanBanner) {
+  const cleanTicketFlyer = ticketFlyerUrl?.trim() || null;
+  if (cleanBanner || cleanTicketFlyer) {
     await admin.from("branding_settings").upsert(
       {
         event_id: event.id,
         organization_id: organizationId,
-        banner_public_id: cleanBanner,
+        banner_public_id: eventType === "ticketed_event" ? null : cleanBanner,
+        ticket_flyer_public_id: eventType === "ticketed_event" ? (cleanTicketFlyer || cleanBanner) : cleanTicketFlyer,
       },
       { onConflict: "event_id" }
     );

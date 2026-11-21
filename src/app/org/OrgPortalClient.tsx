@@ -54,7 +54,9 @@ export interface OrgEventRow {
   eventType: string;
   description: string;
   venue: string;
+  eventDate: string | null;
   bannerUrl: string;
+  ticketFlyerUrl: string;
   approvalStatus: string;
   votingStatus: string;
   votingOpensAt: string | null;
@@ -158,6 +160,7 @@ export function OrgPortalClient({
   const [newEventPrice, setNewEventPrice] = useState("1.00");
   const [newTicketTierName, setNewTicketTierName] = useState("Regular Ticket");
   const [newTicketPriceGhs, setNewTicketPriceGhs] = useState("50.00");
+  const [newEventDateLocal, setNewEventDateLocal] = useState("");
   const [newDurationMode, setNewDurationMode] = useState<"tba" | "scheduled">("tba");
   const [newOpensLocal, setNewOpensLocal] = useState("");
   const [newClosesLocal, setNewClosesLocal] = useState("");
@@ -243,11 +246,16 @@ export function OrgPortalClient({
         return;
       }
     }
+    if (newEventType === "ticketed_event" && !newEventDateLocal) {
+      setNotice({ kind: "err", text: "Please select the specific event date and time for this ticketed event." });
+      return;
+    }
     setBusyId("create-event");
     setNotice(null);
     try {
       const opensIso = newDurationMode === "scheduled" && newOpensLocal ? new Date(newOpensLocal).toISOString() : null;
       const closesIso = newDurationMode === "scheduled" && newClosesLocal ? new Date(newClosesLocal).toISOString() : null;
+      const eventDateIso = newEventDateLocal ? new Date(newEventDateLocal).toISOString() : null;
       const res = await fetch("/api/v1/org/events", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -260,9 +268,11 @@ export function OrgPortalClient({
           unitPriceGhs: Number(newEventPrice) || 1,
           ticketTierName: newEventType === "ticketed_event" ? newTicketTierName.trim() || "Regular Ticket" : undefined,
           ticketPriceGhs: newEventType === "ticketed_event" ? Number(newTicketPriceGhs) || 50 : undefined,
+          eventDate: eventDateIso,
           votingOpensAt: opensIso,
           votingClosesAt: closesIso,
-          bannerUrl: newBannerUrl.trim(),
+          bannerUrl: newEventType === "ticketed_event" ? "" : newBannerUrl.trim(),
+          ticketFlyerUrl: newEventType === "ticketed_event" ? newBannerUrl.trim() : "",
         }),
       });
       const data = await res.json().catch(() => null);
@@ -273,6 +283,7 @@ export function OrgPortalClient({
       setShowNewEventModal(false);
       setNewEventName("");
       setNewEventCode("");
+      setNewEventDateLocal("");
       setNewOpensLocal("");
       setNewClosesLocal("");
       setNewDurationMode("tba");
@@ -641,7 +652,9 @@ export function OrgPortalClient({
                                   eventType: ev.eventType,
                                   description: ev.description,
                                   venue: ev.venue,
+                                  eventDate: ev.eventDate,
                                   bannerUrl: ev.bannerUrl,
+                                  ticketFlyerUrl: ev.ticketFlyerUrl,
                                   votingOpensAt: ev.votingOpensAt,
                                   votingClosesAt: ev.votingClosesAt,
                                 })
@@ -1212,28 +1225,42 @@ export function OrgPortalClient({
                 </div>
               </div>
               {newEventType === "ticketed_event" ? (
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block font-bold text-[#5B5F85] uppercase mb-1">First Ticket Tier *</label>
-                    <input
-                      type="text"
-                      required
-                      value={newTicketTierName}
-                      onChange={(e) => setNewTicketTierName(e.target.value)}
-                      placeholder="e.g. Regular / VIP"
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-[#F6F7FC] border border-[#D9DBEA] text-sm text-[#0E1030]"
-                    />
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block font-bold text-[#5B5F85] uppercase mb-1">First Ticket Tier *</label>
+                      <input
+                        type="text"
+                        required
+                        value={newTicketTierName}
+                        onChange={(e) => setNewTicketTierName(e.target.value)}
+                        placeholder="e.g. Regular / VIP"
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-[#F6F7FC] border border-[#D9DBEA] text-sm text-[#0E1030]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-bold text-[#5B5F85] uppercase mb-1">Ticket Price (GHS) *</label>
+                      <input
+                        type="number"
+                        step="1"
+                        min="1"
+                        required
+                        value={newTicketPriceGhs}
+                        onChange={(e) => setNewTicketPriceGhs(e.target.value)}
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-[#F6F7FC] border border-[#D9DBEA] text-sm font-mono text-[#0E1030]"
+                      />
+                    </div>
                   </div>
                   <div>
-                    <label className="block font-bold text-[#5B5F85] uppercase mb-1">Ticket Price (GHS) *</label>
+                    <label className="block font-bold text-[#5B5F85] uppercase mb-1">
+                      Specific Event Date &amp; Time *
+                    </label>
                     <input
-                      type="number"
-                      step="1"
-                      min="1"
+                      type="datetime-local"
                       required
-                      value={newTicketPriceGhs}
-                      onChange={(e) => setNewTicketPriceGhs(e.target.value)}
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-[#F6F7FC] border border-[#D9DBEA] text-sm font-mono text-[#0E1030]"
+                      value={newEventDateLocal}
+                      onChange={(e) => setNewEventDateLocal(e.target.value)}
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-[#F6F7FC] border border-[#D9DBEA] text-sm text-[#0E1030]"
                     />
                   </div>
                 </div>
@@ -1321,7 +1348,11 @@ export function OrgPortalClient({
                     <img src={newBannerUrl} alt="Event banner preview" className="w-16 h-10 rounded-lg object-cover border border-[#D9DBEA]" />
                   ) : null}
                   <div>
-                    <span className="block font-bold text-[#0E1030]">Event Cover Banner (Optional)</span>
+                    <span className="block font-bold text-[#0E1030]">
+                      {newEventType === "ticketed_event"
+                        ? "Ticket Event Flyer (For /tickets Page)"
+                        : "Voting Event Flyer (For Events Page)"}
+                    </span>
                     <span className="text-[11px] text-[#5B5F85]">JPEG / PNG / WebP up to 4 MB</span>
                   </div>
                 </div>

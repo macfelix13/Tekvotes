@@ -100,7 +100,7 @@ export default async function OrganiserPortalPage({
     await Promise.all([
       admin
         .from("events")
-        .select("id, slug, public_code, name, description, venue, event_type, approval_status, voting_status, voting_opens_at, voting_closes_at, currency")
+        .select("id, slug, public_code, name, description, venue, event_date, event_type, approval_status, voting_status, voting_opens_at, voting_closes_at, currency")
         .eq("organization_id", activeOrg.id)
         .order("created_at", { ascending: false }),
       admin
@@ -121,7 +121,10 @@ export default async function OrganiserPortalPage({
         .eq("organization_id", activeOrg.id)
         .order("sort_order"),
       admin.rpc("app_list_settlement_requests", { p_org_id: activeOrg.id }),
-      admin.from("branding_settings").select("event_id, banner_public_id").eq("organization_id", activeOrg.id),
+      admin
+        .from("branding_settings")
+        .select("event_id, banner_public_id, ticket_flyer_public_id")
+        .eq("organization_id", activeOrg.id),
       admin
         .from("event_ticket_tiers")
         .select("id, event_id, name, description, price_minor, currency, capacity, sold_count, active")
@@ -143,6 +146,7 @@ export default async function OrganiserPortalPage({
     ]);
 
   const bannerByEvent = new Map((brandingRows ?? []).map((b) => [b.event_id as string, (b.banner_public_id as string | null) ?? ""]));
+  const ticketFlyerByEvent = new Map((brandingRows ?? []).map((b) => [b.event_id as string, (b.ticket_flyer_public_id as string | null) ?? ""]));
 
   const fundByEvent = new Map((fundRows ?? []).map((f) => [f.event_id as string, f]));
   const eventNameById = new Map((evRows ?? []).map((e) => [e.id as string, e.name as string]));
@@ -213,7 +217,9 @@ export default async function OrganiserPortalPage({
       eventType: ev.event_type,
       description: ev.description ?? "",
       venue: ev.venue ?? "",
+      eventDate: (ev.event_date as string | null) ?? null,
       bannerUrl: bannerByEvent.get(ev.id) ?? "",
+      ticketFlyerUrl: ticketFlyerByEvent.get(ev.id) ?? "",
       approvalStatus: ev.approval_status,
       votingStatus: ev.voting_status,
       votingOpensAt: (ev.voting_opens_at as string | null) ?? null,

@@ -79,9 +79,10 @@ export interface PublicTicketedEvent {
   eventType: string;
   organizerName: string;
   venue: string | null;
+  eventDate: string | null;
   opensAt: string | null;
   closesAt: string | null;
-  bannerUrl: string | null;
+  ticketFlyerUrl: string | null;
   tiers: PublicTicketTier[];
 }
 
@@ -91,7 +92,7 @@ export async function listPublicTicketedEvents(): Promise<PublicTicketedEvent[]>
 
   const { data: events, error } = await db
     .from("events")
-    .select("id, slug, name, event_type, venue, voting_opens_at, voting_closes_at, organizations(name)")
+    .select("id, slug, name, event_type, venue, event_date, voting_opens_at, voting_closes_at, organizations(name)")
     .order("created_at", { ascending: false });
   if (error || !events?.length) return [];
 
@@ -104,11 +105,11 @@ export async function listPublicTicketedEvents(): Promise<PublicTicketedEvent[]>
       .eq("active", true)
       .order("sort_order", { ascending: true })
       .order("price_minor", { ascending: true }),
-    db.from("branding_settings").select("event_id, banner_public_id").in("event_id", ids),
+    db.from("branding_settings").select("event_id, ticket_flyer_public_id").in("event_id", ids),
   ]);
 
-  const bannerByEvent = new Map(
-    (brandings ?? []).map((b) => [b.event_id as string, (b.banner_public_id as string | null) ?? null])
+  const ticketFlyerByEvent = new Map(
+    (brandings ?? []).map((b) => [b.event_id as string, (b.ticket_flyer_public_id as string | null) ?? null])
   );
   const tiersByEvent = new Map<string, PublicTicketTier[]>();
   for (const t of tiers ?? []) {
@@ -136,9 +137,10 @@ export async function listPublicTicketedEvents(): Promise<PublicTicketedEvent[]>
       eventType: e.event_type as string,
       organizerName: orgName(e.organizations as OrgEmbed),
       venue: (e.venue as string | null) ?? null,
+      eventDate: (e.event_date as string | null) ?? null,
       opensAt: (e.voting_opens_at as string | null) ?? null,
       closesAt: (e.voting_closes_at as string | null) ?? null,
-      bannerUrl: bannerByEvent.get(e.id as string) ?? null,
+      ticketFlyerUrl: ticketFlyerByEvent.get(e.id as string) ?? null,
       tiers: tiersByEvent.get(e.id as string) ?? [],
     }))
     .filter((ev) => ev.tiers.length > 0 || ev.eventType === "ticketed_event");
@@ -148,7 +150,9 @@ export interface PublicEventDetail extends Omit<PublicEventSummary, "contestants
   description: string | null;
   rulesText: string | null;
   venue: string | null;
+  eventDate: string | null;
   opensAt: string | null;
+  ticketFlyerUrl: string | null;
   galleryPhotos: PublicEventGalleryPhoto[];
   ticketTiers: PublicTicketTier[];
   categories: {
@@ -334,7 +338,7 @@ export async function getPublicEvent(slug: string): Promise<PublicEventDetail | 
   const { data: event, error } = await db
     .from("events")
     .select(
-      "id, slug, name, description, rules_text, venue, event_type, voting_status, approval_status, voting_opens_at, voting_closes_at, organizations(name)"
+      "id, slug, name, description, rules_text, venue, event_date, event_type, voting_status, approval_status, voting_opens_at, voting_closes_at, organizations(name)"
     )
     .eq("slug", slug)
     .limit(1)
@@ -356,7 +360,7 @@ export async function getPublicEvent(slug: string): Promise<PublicEventDetail | 
         .order("display_order"),
       db
         .from("branding_settings")
-        .select("banner_public_id")
+        .select("banner_public_id, ticket_flyer_public_id")
         .eq("event_id", event.id)
         .maybeSingle(),
       db
@@ -520,6 +524,7 @@ export async function getPublicEvent(slug: string): Promise<PublicEventDetail | 
   });
 
   const bannerUrl = (branding?.banner_public_id as string | null) ?? null;
+  const ticketFlyerUrl = (branding?.ticket_flyer_public_id as string | null) ?? null;
 
   const galleryPhotos: PublicEventGalleryPhoto[] = [];
   if (bannerUrl) {
@@ -604,6 +609,7 @@ export async function getPublicEvent(slug: string): Promise<PublicEventDetail | 
     description: event.description,
     rulesText: (event.rules_text as string | null) ?? null,
     venue: event.venue,
+    eventDate: (event.event_date as string | null) ?? null,
     eventType: event.event_type,
     organizerName: orgName(event.organizations as OrgEmbed),
     votingStatus: effectiveStatus,
@@ -615,6 +621,7 @@ export async function getPublicEvent(slug: string): Promise<PublicEventDetail | 
     opensAt,
     closesAt,
     bannerUrl,
+    ticketFlyerUrl,
     galleryPhotos,
     ticketTiers,
     categories,

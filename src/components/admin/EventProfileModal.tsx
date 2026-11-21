@@ -12,6 +12,8 @@ export interface EditableEventProfile {
   description: string;
   venue: string;
   bannerUrl: string;
+  ticketFlyerUrl?: string;
+  eventDate?: string | null;
   votingOpensAt?: string | null;
   votingClosesAt?: string | null;
 }
@@ -43,6 +45,8 @@ export function EventProfileModal({ event, onClose, onSaved }: EventProfileModal
   const [venue, setVenue] = useState(event.venue || "");
   const [description, setDescription] = useState(event.description || "");
   const [bannerUrl, setBannerUrl] = useState(event.bannerUrl || "");
+  const [ticketFlyerUrl, setTicketFlyerUrl] = useState(event.ticketFlyerUrl || "");
+  const [eventDateLocal, setEventDateLocal] = useState(() => toDatetimeLocalValue(event.eventDate));
   const [durationMode, setDurationMode] = useState<"tba" | "scheduled">(
     event.votingOpensAt || event.votingClosesAt ? "scheduled" : "tba"
   );
@@ -54,6 +58,7 @@ export function EventProfileModal({ event, onClose, onSaved }: EventProfileModal
   const [uploadingGallery, setUploadingGallery] = useState(false);
 
   const [uploading, setUploading] = useState(false);
+  const [uploadingTicketFlyer, setUploadingTicketFlyer] = useState(false);
   const [saving, setSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
 
@@ -88,6 +93,32 @@ export function EventProfileModal({ event, onClose, onSaved }: EventProfileModal
       setErrorMsg("Network error uploading banner.");
     } finally {
       setUploading(false);
+      e.target.value = "";
+    }
+  };
+
+  const handleTicketFlyerUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setErrorMsg("");
+    setUploadingTicketFlyer(true);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      form.append("bucket", "event-media");
+      form.append("organizationId", event.organizationId);
+
+      const res = await fetch("/api/v1/media/upload", { method: "POST", body: form });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.publicUrl) {
+        setErrorMsg(data?.message || "Ticket flyer upload failed.");
+        return;
+      }
+      setTicketFlyerUrl(data.publicUrl as string);
+    } catch {
+      setErrorMsg("Network error uploading ticket flyer.");
+    } finally {
+      setUploadingTicketFlyer(false);
       e.target.value = "";
     }
   };
@@ -161,6 +192,7 @@ export function EventProfileModal({ event, onClose, onSaved }: EventProfileModal
     try {
       const opensIso = durationMode === "scheduled" && opensLocal ? new Date(opensLocal).toISOString() : null;
       const closesIso = durationMode === "scheduled" && closesLocal ? new Date(closesLocal).toISOString() : null;
+      const eventDateIso = eventDateLocal ? new Date(eventDateLocal).toISOString() : null;
 
       const res = await fetch(`/api/v1/org/events/${event.eventId}`, {
         method: "PATCH",
@@ -171,9 +203,11 @@ export function EventProfileModal({ event, onClose, onSaved }: EventProfileModal
           eventType,
           venue: venue.trim(),
           description: description.trim(),
+          eventDate: eventDateIso,
           votingOpensAt: opensIso,
           votingClosesAt: closesIso,
           bannerUrl: bannerUrl.trim(),
+          ticketFlyerUrl: ticketFlyerUrl.trim(),
         }),
       });
       const data = await res.json().catch(() => null);
@@ -216,32 +250,75 @@ export function EventProfileModal({ event, onClose, onSaved }: EventProfileModal
         ) : null}
 
         <form onSubmit={handleSubmit} className="space-y-4 text-xs">
-          <div>
-            <label className="block font-bold text-[#5B5F85] uppercase mb-1.5">Event Cover Banner</label>
-            <div className="space-y-2">
-              {bannerUrl ? (
-                <div className="relative rounded-2xl overflow-hidden border border-[#D9DBEA] aspect-[16/8] bg-[#0E1030]">
-                  <img src={bannerUrl} alt={name} className="w-full h-full object-cover" />
-                  <button
-                    type="button"
-                    onClick={() => setBannerUrl("")}
-                    className="absolute top-2.5 right-2.5 inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-black/70 text-white text-[11px] font-bold hover:bg-[#D13A3A] cursor-pointer"
-                  >
-                    <Trash2 className="w-3 h-3" /> Remove
-                  </button>
+          <div className="grid sm:grid-cols-2 gap-4">
+            {eventType !== "ticketed_event" ? (
+              <div>
+                <label className="block font-bold text-[#5B5F85] uppercase mb-1.5">
+                  Voting Event Flyer (Events Page)
+                </label>
+                <div className="space-y-2">
+                  {bannerUrl ? (
+                    <div className="relative rounded-2xl overflow-hidden border border-[#D9DBEA] aspect-[4/3] bg-[#0E1030]">
+                      <img src={bannerUrl} alt={name} className="w-full h-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => setBannerUrl("")}
+                        className="absolute top-2 right-2 inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-black/70 text-white text-[10px] font-bold hover:bg-[#D13A3A] cursor-pointer"
+                      >
+                        <Trash2 className="w-3 h-3" /> Remove
+                      </button>
+                    </div>
+                  ) : null}
+                  <label className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#E8E5FD] text-[#4B35E0] font-bold hover:bg-[#DBD5FC] cursor-pointer">
+                    {uploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
+                    <span>{uploading ? "Uploading..." : bannerUrl ? "Replace Voting Flyer" : "Upload Voting Flyer"}</span>
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      disabled={uploading}
+                      onChange={handleBannerUpload}
+                      className="sr-only"
+                    />
+                  </label>
                 </div>
-              ) : null}
-              <label className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-[#E8E5FD] text-[#4B35E0] font-bold hover:bg-[#DBD5FC] cursor-pointer">
-                {uploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
-                <span>{uploading ? "Uploading..." : bannerUrl ? "Replace Cover Banner" : "Upload Cover Banner"}</span>
-                <input
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  disabled={uploading}
-                  onChange={handleBannerUpload}
-                  className="sr-only"
-                />
+              </div>
+            ) : null}
+
+            <div className={eventType === "ticketed_event" ? "sm:col-span-2" : ""}>
+              <label className="block font-bold text-[#5B5F85] uppercase mb-1.5">
+                Ticket Event Flyer (Shown on /tickets Only)
               </label>
+              <div className="space-y-2">
+                {ticketFlyerUrl ? (
+                  <div className="relative rounded-2xl overflow-hidden border border-[#D9DBEA] aspect-[4/3] bg-[#0E1030]">
+                    <img src={ticketFlyerUrl} alt={`${name} ticket flyer`} className="w-full h-full object-cover" />
+                    <button
+                      type="button"
+                      onClick={() => setTicketFlyerUrl("")}
+                      className="absolute top-2 right-2 inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-black/70 text-white text-[10px] font-bold hover:bg-[#D13A3A] cursor-pointer"
+                    >
+                      <Trash2 className="w-3 h-3" /> Remove
+                    </button>
+                  </div>
+                ) : null}
+                <label className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#FDF3D6] text-[#C77700] font-bold hover:bg-[#FCE8B2] cursor-pointer">
+                  {uploadingTicketFlyer ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
+                  <span>
+                    {uploadingTicketFlyer
+                      ? "Uploading..."
+                      : ticketFlyerUrl
+                      ? "Replace Ticket Flyer"
+                      : "Upload Ticket Flyer"}
+                  </span>
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    disabled={uploadingTicketFlyer}
+                    onChange={handleTicketFlyerUpload}
+                    className="sr-only"
+                  />
+                </label>
+              </div>
             </div>
           </div>
 
@@ -342,15 +419,29 @@ export function EventProfileModal({ event, onClose, onSaved }: EventProfileModal
             </div>
           </div>
 
-          <div>
-            <label className="block font-bold text-[#5B5F85] uppercase mb-1">Venue / Location</label>
-            <input
-              type="text"
-              value={venue}
-              onChange={(e) => setVenue(e.target.value)}
-              placeholder="e.g. National Theatre, Accra"
-              className="w-full px-3.5 py-2.5 rounded-xl bg-[#F6F7FC] border border-[#D9DBEA] text-sm text-[#0E1030]"
-            />
+          <div className="grid sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block font-bold text-[#5B5F85] uppercase mb-1">Venue / Location</label>
+              <input
+                type="text"
+                value={venue}
+                onChange={(e) => setVenue(e.target.value)}
+                placeholder="e.g. National Theatre, Accra"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-[#F6F7FC] border border-[#D9DBEA] text-sm text-[#0E1030]"
+              />
+            </div>
+            <div>
+              <label className="block font-bold text-[#5B5F85] uppercase mb-1">
+                Specific Event Date &amp; Time {eventType === "ticketed_event" ? "*" : "(For Show / Finale)"}
+              </label>
+              <input
+                type="datetime-local"
+                required={eventType === "ticketed_event"}
+                value={eventDateLocal}
+                onChange={(e) => setEventDateLocal(e.target.value)}
+                className="w-full px-3.5 py-2.5 rounded-xl bg-[#F6F7FC] border border-[#D9DBEA] text-sm text-[#0E1030]"
+              />
+            </div>
           </div>
 
           <div className="p-4 rounded-2xl bg-[#F6F7FC] border border-[#D9DBEA] space-y-3">
@@ -431,7 +522,7 @@ export function EventProfileModal({ event, onClose, onSaved }: EventProfileModal
             </button>
             <button
               type="submit"
-              disabled={saving || uploading || uploadingGallery}
+              disabled={saving || uploading || uploadingTicketFlyer || uploadingGallery}
               className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#4B35E0] text-white text-xs font-bold hover:bg-[#3B28B8] disabled:opacity-50 cursor-pointer"
             >
               {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}

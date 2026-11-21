@@ -165,15 +165,19 @@ export function EventClient({ event, initialCode }: { event: PublicEventDetail; 
       }
     : null;
 
+  const heroFlyerUrl = isTicketOnlyEvent
+    ? event.ticketFlyerUrl || event.bannerUrl
+    : event.bannerUrl;
+
   return (
     <div className="min-h-screen flex flex-col bg-[#F6F7FC]">
       <Navbar />
 
       <main className="flex-1 pb-20">
         <div className="relative bg-[#0E1030] text-white overflow-hidden">
-          {event.bannerUrl ? (
+          {heroFlyerUrl ? (
             <div className="absolute inset-0 opacity-35">
-              <img src={event.bannerUrl} alt={event.name} className="w-full h-full object-cover" />
+              <img src={heroFlyerUrl} alt={event.name} className="w-full h-full object-cover" />
               <div className="absolute inset-0 bg-gradient-to-t from-[#0E1030] via-[#0E1030]/80 to-transparent" />
             </div>
           ) : null}
@@ -210,7 +214,11 @@ export function EventClient({ event, initialCode }: { event: PublicEventDetail; 
                 ) : null}
                 <span className="flex items-center gap-1.5">
                   <Calendar className="w-4 h-4 text-[#F2A900]" />
-                  {formatDurationBadge(event)}
+                  {isTicketOnlyEvent
+                    ? event.eventDate
+                      ? `Event Date: ${formatDateTime(event.eventDate)}`
+                      : "Event Date TBA"
+                    : formatDurationBadge(event)}
                 </span>
                 {minPrice != null ? (
                   <span className="flex items-center gap-1.5">
@@ -577,24 +585,34 @@ export function EventClient({ event, initialCode }: { event: PublicEventDetail; 
                           <strong className="text-[#0E1030]">{event.venue}</strong>
                         </div>
                       ) : null}
-                      <div className="flex items-center justify-between py-2 border-b border-[#D9DBEA]">
-                        <span className="text-[#5B5F85]">Duration Mode</span>
-                        <strong className="text-[#4B35E0]">
-                          {event.opensAt || event.closesAt ? "Scheduled Window" : "Open-Ended / TBA"}
-                        </strong>
-                      </div>
-                      <div className="flex items-center justify-between py-2 border-b border-[#D9DBEA]">
-                        <span className="text-[#5B5F85]">Voting Opens</span>
-                        <strong className="text-[#0E1030]">
-                          {formatDateTime(event.opensAt) ?? (event.votingOpen ? "Active Now" : "TBA")}
-                        </strong>
-                      </div>
-                      <div className="flex items-center justify-between py-2 border-b border-[#D9DBEA]">
-                        <span className="text-[#5B5F85]">Voting Closes</span>
-                        <strong className="text-[#0E1030]">
-                          {formatDateTime(event.closesAt) ?? (event.votingOpen ? "Open-Ended (TBA)" : formatDate(event.closesAt))}
-                        </strong>
-                      </div>
+                      {event.eventDate ? (
+                        <div className="flex items-center justify-between py-2 border-b border-[#D9DBEA]">
+                          <span className="text-[#5B5F85]">Event Date &amp; Time</span>
+                          <strong className="text-[#C77700]">{formatDateTime(event.eventDate)}</strong>
+                        </div>
+                      ) : null}
+                      {!isTicketOnlyEvent ? (
+                        <>
+                          <div className="flex items-center justify-between py-2 border-b border-[#D9DBEA]">
+                            <span className="text-[#5B5F85]">Duration Mode</span>
+                            <strong className="text-[#4B35E0]">
+                              {event.opensAt || event.closesAt ? "Scheduled Window" : "Open-Ended / TBA"}
+                            </strong>
+                          </div>
+                          <div className="flex items-center justify-between py-2 border-b border-[#D9DBEA]">
+                            <span className="text-[#5B5F85]">Voting Opens</span>
+                            <strong className="text-[#0E1030]">
+                              {formatDateTime(event.opensAt) ?? (event.votingOpen ? "Active Now" : "TBA")}
+                            </strong>
+                          </div>
+                          <div className="flex items-center justify-between py-2 border-b border-[#D9DBEA]">
+                            <span className="text-[#5B5F85]">Voting Closes</span>
+                            <strong className="text-[#0E1030]">
+                              {formatDateTime(event.closesAt) ?? (event.votingOpen ? "Open-Ended (TBA)" : formatDate(event.closesAt))}
+                            </strong>
+                          </div>
+                        </>
+                      ) : null}
                       <div className="flex items-center justify-between py-2 border-b border-[#D9DBEA]">
                         <span className="text-[#5B5F85]">Categories</span>
                         <strong className="text-[#0E1030]">{event.categories.length}</strong>
