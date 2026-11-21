@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { X, Upload, Loader2, Trash2, Images } from "lucide-react";
+import { X, Upload, Loader2, Trash2, Images, Calendar } from "lucide-react";
 
 export interface EditableEventProfile {
   eventId: string;
@@ -12,6 +12,16 @@ export interface EditableEventProfile {
   description: string;
   venue: string;
   bannerUrl: string;
+  votingOpensAt?: string | null;
+  votingClosesAt?: string | null;
+}
+
+function toDatetimeLocalValue(iso?: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
 interface GalleryItem {
@@ -33,6 +43,11 @@ export function EventProfileModal({ event, onClose, onSaved }: EventProfileModal
   const [venue, setVenue] = useState(event.venue || "");
   const [description, setDescription] = useState(event.description || "");
   const [bannerUrl, setBannerUrl] = useState(event.bannerUrl || "");
+  const [durationMode, setDurationMode] = useState<"tba" | "scheduled">(
+    event.votingOpensAt || event.votingClosesAt ? "scheduled" : "tba"
+  );
+  const [opensLocal, setOpensLocal] = useState(() => toDatetimeLocalValue(event.votingOpensAt));
+  const [closesLocal, setClosesLocal] = useState(() => toDatetimeLocalValue(event.votingClosesAt));
 
   const [galleryItems, setGalleryItems] = useState<GalleryItem[]>([]);
   const [newGalleryCaption, setNewGalleryCaption] = useState("");
@@ -136,8 +151,17 @@ export function EventProfileModal({ event, onClose, onSaved }: EventProfileModal
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg("");
+    if (durationMode === "scheduled") {
+      if (opensLocal && closesLocal && new Date(closesLocal).getTime() <= new Date(opensLocal).getTime()) {
+        setErrorMsg("Voting closing date/time must be after the opening date/time.");
+        return;
+      }
+    }
     setSaving(true);
     try {
+      const opensIso = durationMode === "scheduled" && opensLocal ? new Date(opensLocal).toISOString() : null;
+      const closesIso = durationMode === "scheduled" && closesLocal ? new Date(closesLocal).toISOString() : null;
+
       const res = await fetch(`/api/v1/org/events/${event.eventId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -147,6 +171,8 @@ export function EventProfileModal({ event, onClose, onSaved }: EventProfileModal
           eventType,
           venue: venue.trim(),
           description: description.trim(),
+          votingOpensAt: opensIso,
+          votingClosesAt: closesIso,
           bannerUrl: bannerUrl.trim(),
         }),
       });
@@ -324,6 +350,62 @@ export function EventProfileModal({ event, onClose, onSaved }: EventProfileModal
               placeholder="e.g. National Theatre, Accra"
               className="w-full px-3.5 py-2.5 rounded-xl bg-[#F6F7FC] border border-[#D9DBEA] text-sm text-[#0E1030]"
             />
+          </div>
+
+          <div className="p-4 rounded-2xl bg-[#F6F7FC] border border-[#D9DBEA] space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <span className="font-bold text-[#0E1030] inline-flex items-center gap-1.5">
+                <Calendar className="w-4 h-4 text-[#4B35E0]" /> Voting Duration &amp; Schedule
+              </span>
+              <div className="grid grid-cols-2 gap-1.5 bg-white p-1 rounded-xl border border-[#D9DBEA]">
+                {(
+                  [
+                    { id: "tba", label: "TBA / Open-Ended" },
+                    { id: "scheduled", label: "Scheduled Dates" },
+                  ] as const
+                ).map((mode) => (
+                  <button
+                    key={mode.id}
+                    type="button"
+                    onClick={() => setDurationMode(mode.id)}
+                    className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                      durationMode === mode.id
+                        ? "bg-[#4B35E0] text-white"
+                        : "text-[#5B5F85] hover:text-[#0E1030]"
+                    }`}
+                  >
+                    {mode.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {durationMode === "scheduled" ? (
+              <div className="grid sm:grid-cols-2 gap-3 pt-1">
+                <div>
+                  <label className="block font-bold text-[#5B5F85] uppercase mb-1">Voting Opens At</label>
+                  <input
+                    type="datetime-local"
+                    value={opensLocal}
+                    onChange={(e) => setOpensLocal(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl bg-white border border-[#D9DBEA] text-xs text-[#0E1030]"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-[#5B5F85] uppercase mb-1">Voting Closes At</label>
+                  <input
+                    type="datetime-local"
+                    value={closesLocal}
+                    onChange={(e) => setClosesLocal(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl bg-white border border-[#D9DBEA] text-xs text-[#0E1030]"
+                  />
+                </div>
+              </div>
+            ) : (
+              <p className="text-[11px] text-[#5B5F85]">
+                No fixed closing date (shown as <strong>Open / TBA</strong>). Voting remains open whenever activated until manually paused or ended.
+              </p>
+            )}
           </div>
 
           <div>

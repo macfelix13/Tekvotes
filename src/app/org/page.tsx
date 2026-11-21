@@ -95,7 +95,7 @@ export default async function OrganiserPortalPage({
     await Promise.all([
       admin
         .from("events")
-        .select("id, slug, public_code, name, description, venue, event_type, approval_status, voting_status, currency")
+        .select("id, slug, public_code, name, description, venue, event_type, approval_status, voting_status, voting_opens_at, voting_closes_at, currency")
         .eq("organization_id", activeOrg.id)
         .order("created_at", { ascending: false }),
       admin
@@ -193,6 +193,8 @@ export default async function OrganiserPortalPage({
       bannerUrl: bannerByEvent.get(ev.id) ?? "",
       approvalStatus: ev.approval_status,
       votingStatus: ev.voting_status,
+      votingOpensAt: (ev.voting_opens_at as string | null) ?? null,
+      votingClosesAt: (ev.voting_closes_at as string | null) ?? null,
       totalVotes: votesByEvent.get(ev.id) ?? 0,
       pendingEscrowMinor: Number(vf?.total_earned_pending_minor ?? 0),
       availableMinor: Number(vf?.available_to_settle_minor ?? 0),

@@ -53,6 +53,8 @@ export interface AdminEventFundRow {
   orgName: string;
   approvalStatus: string;
   votingStatus: string;
+  votingOpensAt: string | null;
+  votingClosesAt: string | null;
   currency: string;
   commissionBps: number;
   grossCollectedMinor: number;
@@ -719,6 +721,8 @@ export function AdminConsoleClient({
                                       description: ef.description,
                                       venue: ef.venue,
                                       bannerUrl: ef.bannerUrl,
+                                      votingOpensAt: ef.votingOpensAt,
+                                      votingClosesAt: ef.votingClosesAt,
                                     })
                                   }
                                   className="px-2.5 py-1 rounded-lg border border-[#D9DBEA] bg-white text-[#0E1030] font-bold hover:border-[#4B35E0] hover:text-[#4B35E0] inline-flex items-center gap-1 cursor-pointer"

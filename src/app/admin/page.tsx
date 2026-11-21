@@ -76,7 +76,7 @@ export default async function SuperAdminPage() {
     admin.from("v_event_funds").select("*"),
     admin
       .from("events")
-      .select("id, slug, public_code, name, description, venue, event_type, organization_id, approval_status, voting_status, currency, commission_bps, organizations(name)")
+      .select("id, slug, public_code, name, description, venue, event_type, organization_id, approval_status, voting_status, voting_opens_at, voting_closes_at, currency, commission_bps, organizations(name)")
       .order("created_at", { ascending: false }),
     admin.from("v_org_funds").select("*"),
     admin
@@ -157,6 +157,8 @@ export default async function SuperAdminPage() {
       orgName,
       approvalStatus: ev.approval_status,
       votingStatus: ev.voting_status,
+      votingOpensAt: (ev.voting_opens_at as string | null) ?? null,
+      votingClosesAt: (ev.voting_closes_at as string | null) ?? null,
       currency: ev.currency,
       commissionBps: Number(ev.commission_bps ?? 1000),
       grossCollectedMinor: ord.gross,

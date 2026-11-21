@@ -16,6 +16,8 @@ const CreateEventSchema = z.object({
   categoryName: z.string().trim().min(2).max(100).default("Main Category"),
   unitPriceGhs: z.number().positive("Price per vote must be greater than zero").max(10000),
   description: z.string().trim().max(2000).optional(),
+  votingOpensAt: z.string().datetime({ offset: true }).nullable().optional().or(z.literal("")),
+  votingClosesAt: z.string().datetime({ offset: true }).nullable().optional().or(z.literal("")),
   bannerUrl: z
     .string()
     .trim()
@@ -45,9 +47,29 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { organizationId, name, publicCode, eventType, categoryName, unitPriceGhs, description, bannerUrl } = parsed.data;
+  const {
+    organizationId,
+    name,
+    publicCode,
+    eventType,
+    categoryName,
+    unitPriceGhs,
+    description,
+    votingOpensAt,
+    votingClosesAt,
+    bannerUrl,
+  } = parsed.data;
   const auth = await requireApiOrgMember(organizationId);
   if (!auth.ok) return auth.response;
+
+  const opensIso = votingOpensAt ? new Date(votingOpensAt).toISOString() : null;
+  const closesIso = votingClosesAt ? new Date(votingClosesAt).toISOString() : null;
+  if (opensIso && closesIso && new Date(closesIso).getTime() <= new Date(opensIso).getTime()) {
+    return NextResponse.json(
+      { error: "INVALID_DATES", message: "Voting closing date/time must be after the opening date/time." },
+      { status: 400 }
+    );
+  }
 
   const admin = createAdminClient();
   const unitPriceMinor = Math.round(unitPriceGhs * 100);
@@ -67,6 +89,8 @@ export async function POST(req: NextRequest) {
       name,
       description: description || null,
       event_type: eventType,
+      voting_opens_at: opensIso,
+      voting_closes_at: closesIso,
       publication_status: "published",
       approval_status: "not_submitted",
       voting_status: "not_started",

@@ -4,8 +4,22 @@ import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Reveal } from "@/components/ui/Reveal";
-import { ArrowRight, Building2, Search, Filter } from "lucide-react";
+import { ArrowRight, Building2, Search, Filter, Calendar } from "lucide-react";
 import type { PublicEventSummary } from "@/lib/public-events";
+
+const formatShortDate = (iso: string | null) =>
+  iso
+    ? new Date(iso).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric", timeZone: "Africa/Accra" })
+    : null;
+
+function formatCardSchedule(e: PublicEventSummary): string {
+  const opens = formatShortDate(e.opensAt);
+  const closes = formatShortDate(e.closesAt);
+  if (e.votingStatus === "closed") return closes ? `Ended ${closes}` : "Voting Closed";
+  if (e.votingOpen) return closes ? `Closes ${closes}` : "Live · Open / TBA";
+  if (opens) return `Opens ${opens}`;
+  return "Schedule TBA";
+}
 
 type Bucket = "All" | "Pageants" | "Awards" | "Talent";
 
@@ -128,6 +142,10 @@ export function CompetitionsClient({ events }: { events: PublicEventSummary[] })
                         {event.organizerName}
                       </span>
                       <span>{event.contestantsCount} contestants</span>
+                    </div>
+                    <div className="mt-1.5 flex items-center gap-1.5 text-[11px] font-semibold text-[#4B35E0]">
+                      <Calendar className="w-3.5 h-3.5" />
+                      <span>{formatCardSchedule(event)}</span>
                     </div>
                   </div>
 

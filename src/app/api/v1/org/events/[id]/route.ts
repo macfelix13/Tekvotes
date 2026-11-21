@@ -15,6 +15,8 @@ const PatchEventSchema = z.object({
   eventType: z.enum(["beauty_pageant", "award_show", "talent_show", "campus_contest", "other"]).optional(),
   description: z.string().trim().max(2000).optional().or(z.literal("")),
   venue: z.string().trim().max(200).optional().or(z.literal("")),
+  votingOpensAt: z.string().datetime({ offset: true }).nullable().optional().or(z.literal("")),
+  votingClosesAt: z.string().datetime({ offset: true }).nullable().optional().or(z.literal("")),
   bannerUrl: z
     .string()
     .trim()
@@ -57,13 +59,30 @@ export async function PATCH(
   const auth = await requireApiOrgMember(ev.organization_id);
   if (!auth.ok) return auth.response;
 
-  const { name, publicCode, eventType, description, venue, bannerUrl } = parsed.data;
+  const { name, publicCode, eventType, description, venue, votingOpensAt, votingClosesAt, bannerUrl } = parsed.data;
   const updates: Record<string, unknown> = {};
   if (name !== undefined) updates.name = name;
   if (publicCode !== undefined) updates.public_code = publicCode.toUpperCase();
   if (eventType !== undefined) updates.event_type = eventType;
   if (description !== undefined) updates.description = description.trim() || null;
   if (venue !== undefined) updates.venue = venue.trim() || null;
+  if (votingOpensAt !== undefined) {
+    updates.voting_opens_at = votingOpensAt ? new Date(votingOpensAt).toISOString() : null;
+  }
+  if (votingClosesAt !== undefined) {
+    updates.voting_closes_at = votingClosesAt ? new Date(votingClosesAt).toISOString() : null;
+  }
+
+  if (
+    updates.voting_opens_at &&
+    updates.voting_closes_at &&
+    new Date(updates.voting_closes_at as string).getTime() <= new Date(updates.voting_opens_at as string).getTime()
+  ) {
+    return NextResponse.json(
+      { error: "INVALID_DATES", message: "Voting closing date/time must be after the opening date/time." },
+      { status: 400 }
+    );
+  }
 
   if (Object.keys(updates).length > 0) {
     const { error: updErr } = await admin

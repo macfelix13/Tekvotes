@@ -50,6 +50,8 @@ export interface OrgEventRow {
   bannerUrl: string;
   approvalStatus: string;
   votingStatus: string;
+  votingOpensAt: string | null;
+  votingClosesAt: string | null;
   totalVotes: number;
   pendingEscrowMinor: number;
   availableMinor: number;
@@ -139,6 +141,9 @@ export function OrgPortalClient({
   const [newEventType, setNewEventType] = useState<"beauty_pageant" | "award_show" | "talent_show" | "campus_contest" | "other">("beauty_pageant");
   const [newCategoryName, setNewCategoryName] = useState("Main Category");
   const [newEventPrice, setNewEventPrice] = useState("1.00");
+  const [newDurationMode, setNewDurationMode] = useState<"tba" | "scheduled">("tba");
+  const [newOpensLocal, setNewOpensLocal] = useState("");
+  const [newClosesLocal, setNewClosesLocal] = useState("");
   const [newBannerUrl, setNewBannerUrl] = useState("");
   const [uploadingBanner, setUploadingBanner] = useState(false);
 
@@ -215,9 +220,17 @@ export function OrgPortalClient({
 
   const handleCreateEvent = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (newDurationMode === "scheduled" && newOpensLocal && newClosesLocal) {
+      if (new Date(newClosesLocal).getTime() <= new Date(newOpensLocal).getTime()) {
+        setNotice({ kind: "err", text: "Voting closing date/time must be after the opening date/time." });
+        return;
+      }
+    }
     setBusyId("create-event");
     setNotice(null);
     try {
+      const opensIso = newDurationMode === "scheduled" && newOpensLocal ? new Date(newOpensLocal).toISOString() : null;
+      const closesIso = newDurationMode === "scheduled" && newClosesLocal ? new Date(newClosesLocal).toISOString() : null;
       const res = await fetch("/api/v1/org/events", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -228,6 +241,8 @@ export function OrgPortalClient({
           eventType: newEventType,
           categoryName: newCategoryName.trim() || "Main Category",
           unitPriceGhs: Number(newEventPrice) || 1,
+          votingOpensAt: opensIso,
+          votingClosesAt: closesIso,
           bannerUrl: newBannerUrl.trim(),
         }),
       });
@@ -239,6 +254,9 @@ export function OrgPortalClient({
       setShowNewEventModal(false);
       setNewEventName("");
       setNewEventCode("");
+      setNewOpensLocal("");
+      setNewClosesLocal("");
+      setNewDurationMode("tba");
       setNewBannerUrl("");
       setNotice({ kind: "ok", text: `Created event "${data.event.name}" (${data.event.public_code}).` });
       router.refresh();
@@ -578,6 +596,16 @@ export function OrgPortalClient({
                             Available:{" "}
                             <strong className="text-[#0F9D6B]">{fmtGhs(ev.availableMinor, ev.currency)}</strong>
                           </p>
+                          <p className="text-[11px] text-[#5B5F85]">
+                            Duration:{" "}
+                            <strong className="text-[#0E1030]">
+                              {ev.votingOpensAt || ev.votingClosesAt
+                                ? `${ev.votingOpensAt ? ev.votingOpensAt.slice(0, 10) : "Now"} → ${
+                                    ev.votingClosesAt ? ev.votingClosesAt.slice(0, 10) : "Open-Ended"
+                                  }`
+                                : "TBA / Open-Ended"}
+                            </strong>
+                          </p>
                         </div>
 
                         <div className="flex flex-col sm:items-end gap-2">
@@ -594,6 +622,8 @@ export function OrgPortalClient({
                                   description: ev.description,
                                   venue: ev.venue,
                                   bannerUrl: ev.bannerUrl,
+                                  votingOpensAt: ev.votingOpensAt,
+                                  votingClosesAt: ev.votingClosesAt,
                                 })
                               }
                               className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl border border-[#D9DBEA] bg-white text-xs font-bold text-[#0E1030] hover:border-[#4B35E0] hover:text-[#4B35E0] cursor-pointer"
@@ -1160,6 +1190,57 @@ export function OrgPortalClient({
                     className="w-full px-3.5 py-2.5 rounded-xl bg-[#F6F7FC] border border-[#D9DBEA] text-sm text-[#0E1030]"
                   />
                 </div>
+              </div>
+
+              <div className="p-3 rounded-xl bg-[#F6F7FC] border border-[#D9DBEA] space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-[#0E1030]">Voting Duration</span>
+                  <div className="grid grid-cols-2 gap-1 bg-white p-0.5 rounded-lg border border-[#D9DBEA]">
+                    {(
+                      [
+                        { id: "tba", label: "TBA / Open" },
+                        { id: "scheduled", label: "Scheduled" },
+                      ] as const
+                    ).map((m) => (
+                      <button
+                        key={m.id}
+                        type="button"
+                        onClick={() => setNewDurationMode(m.id)}
+                        className={`px-2.5 py-1 rounded-md text-[11px] font-bold cursor-pointer ${
+                          newDurationMode === m.id ? "bg-[#4B35E0] text-white" : "text-[#5B5F85]"
+                        }`}
+                      >
+                        {m.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {newDurationMode === "scheduled" ? (
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-[10px] font-bold text-[#5B5F85] uppercase mb-1">Opens At</label>
+                      <input
+                        type="datetime-local"
+                        value={newOpensLocal}
+                        onChange={(e) => setNewOpensLocal(e.target.value)}
+                        className="w-full px-2.5 py-1.5 rounded-lg bg-white border border-[#D9DBEA] text-[11px] text-[#0E1030]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-[#5B5F85] uppercase mb-1">Closes At</label>
+                      <input
+                        type="datetime-local"
+                        value={newClosesLocal}
+                        onChange={(e) => setNewClosesLocal(e.target.value)}
+                        className="w-full px-2.5 py-1.5 rounded-lg bg-white border border-[#D9DBEA] text-[11px] text-[#0E1030]"
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-[#5B5F85]">
+                    Open-ended / TBA duration (you can set a closing date anytime in Edit Event).
+                  </p>
+                )}
               </div>
 
               <div className="p-3 rounded-xl bg-[#F6F7FC] border border-[#D9DBEA] flex items-center justify-between gap-3">

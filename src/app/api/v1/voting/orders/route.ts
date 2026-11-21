@@ -107,7 +107,7 @@ export async function POST(req: NextRequest) {
 
     const { data: ev, error: evErr } = await supabase
       .from("events")
-      .select("id, approval_status, voting_status")
+      .select("id, approval_status, voting_status, voting_opens_at, voting_closes_at")
       .eq("id", ce.event_id)
       .maybeSingle();
 
@@ -123,6 +123,20 @@ export async function POST(req: NextRequest) {
     if (!cat || !ev || ce.status !== "active" || !cat.voting_enabled || ev.approval_status !== "approved" || ev.voting_status !== "active") {
       return NextResponse.json(
         { error: "VOTING_NOT_ACTIVE", message: "Voting is not currently active for this competition." },
+        { status: 409 }
+      );
+    }
+
+    const nowMs = Date.now();
+    if (ev.voting_opens_at && new Date(ev.voting_opens_at as string).getTime() > nowMs) {
+      return NextResponse.json(
+        { error: "VOTING_NOT_YET_OPEN", message: "Scheduled voting has not opened yet for this competition." },
+        { status: 409 }
+      );
+    }
+    if (ev.voting_closes_at && new Date(ev.voting_closes_at as string).getTime() <= nowMs) {
+      return NextResponse.json(
+        { error: "VOTING_ALREADY_CLOSED", message: "The scheduled voting duration for this competition has ended." },
         { status: 409 }
       );
     }

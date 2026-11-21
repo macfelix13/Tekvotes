@@ -33,10 +33,40 @@ const initials = (name: string) =>
     .join("")
     .toUpperCase();
 
-const formatDate = (iso: string | null) =>
+const formatDate = (iso: string | null, fallback = "TBA") =>
   iso
     ? new Date(iso).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric", timeZone: "Africa/Accra" })
-    : "TBA";
+    : fallback;
+
+const formatDateTime = (iso: string | null) =>
+  iso
+    ? new Date(iso).toLocaleString("en-GB", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        timeZone: "Africa/Accra",
+      })
+    : null;
+
+function formatDurationBadge(event: PublicEventDetail): string {
+  const opens = formatDateTime(event.opensAt);
+  const closes = formatDateTime(event.closesAt);
+  if (event.votingStatus === "closed") {
+    return closes ? `Ended ${closes}` : "Voting Closed";
+  }
+  if (event.votingOpen) {
+    return closes ? `Closes ${closes}` : "Live · Open-Ended (TBA Close)";
+  }
+  if (opens && closes) {
+    return `Scheduled: ${opens} – ${closes}`;
+  }
+  if (opens) {
+    return `Opens ${opens}`;
+  }
+  return "Schedule TBA";
+}
 
 function Portrait({ name, photoUrl, className }: { name: string; photoUrl: string | null; className: string }) {
   if (photoUrl) {
@@ -171,7 +201,7 @@ export function EventClient({ event, initialCode }: { event: PublicEventDetail; 
                 ) : null}
                 <span className="flex items-center gap-1.5">
                   <Calendar className="w-4 h-4 text-[#F2A900]" />
-                  {event.votingOpen ? `Closes ${formatDate(event.closesAt)}` : `Opens ${formatDate(event.opensAt)}`}
+                  {formatDurationBadge(event)}
                 </span>
                 {minPrice != null ? (
                   <span className="flex items-center gap-1.5">
@@ -488,12 +518,22 @@ export function EventClient({ event, initialCode }: { event: PublicEventDetail; 
                         </div>
                       ) : null}
                       <div className="flex items-center justify-between py-2 border-b border-[#D9DBEA]">
+                        <span className="text-[#5B5F85]">Duration Mode</span>
+                        <strong className="text-[#4B35E0]">
+                          {event.opensAt || event.closesAt ? "Scheduled Window" : "Open-Ended / TBA"}
+                        </strong>
+                      </div>
+                      <div className="flex items-center justify-between py-2 border-b border-[#D9DBEA]">
                         <span className="text-[#5B5F85]">Voting Opens</span>
-                        <strong className="text-[#0E1030]">{formatDate(event.opensAt)}</strong>
+                        <strong className="text-[#0E1030]">
+                          {formatDateTime(event.opensAt) ?? (event.votingOpen ? "Active Now" : "TBA")}
+                        </strong>
                       </div>
                       <div className="flex items-center justify-between py-2 border-b border-[#D9DBEA]">
                         <span className="text-[#5B5F85]">Voting Closes</span>
-                        <strong className="text-[#0E1030]">{formatDate(event.closesAt)}</strong>
+                        <strong className="text-[#0E1030]">
+                          {formatDateTime(event.closesAt) ?? (event.votingOpen ? "Open-Ended (TBA)" : formatDate(event.closesAt))}
+                        </strong>
                       </div>
                       <div className="flex items-center justify-between py-2 border-b border-[#D9DBEA]">
                         <span className="text-[#5B5F85]">Categories</span>

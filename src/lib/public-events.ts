@@ -18,6 +18,7 @@ export interface PublicEventSummary {
   votingStatus: string;
   contestantsCount: number;
   minUnitPriceMinor: number | null;
+  opensAt: string | null;
   closesAt: string | null;
   bannerUrl: string | null;
 }
@@ -192,7 +193,7 @@ export async function listPublicEvents(): Promise<PublicEventSummary[]> {
 
   const { data: events, error } = await db
     .from("events")
-    .select("id, slug, name, event_type, voting_status, approval_status, voting_closes_at, organizations(name)")
+    .select("id, slug, name, event_type, voting_status, approval_status, voting_opens_at, voting_closes_at, organizations(name)")
     .order("created_at", { ascending: false });
   if (error) throw new Error(`Failed to load events: ${error.message}`);
   if (!events?.length) return [];
@@ -210,19 +211,31 @@ export async function listPublicEvents(): Promise<PublicEventSummary[]> {
     (brandings ?? []).map((b) => [b.event_id as string, (b.banner_public_id as string | null) ?? null])
   );
 
+  const nowMs = Date.now();
   return events.map((e) => {
     const prices = (cats ?? []).filter((c) => c.event_id === e.id).map((c) => Number(c.unit_price_minor));
+    const opensAt = (e.voting_opens_at as string | null) ?? null;
+    const closesAt = (e.voting_closes_at as string | null) ?? null;
+    const pastOpen = !opensAt || new Date(opensAt).getTime() <= nowMs;
+    const beforeClose = !closesAt || new Date(closesAt).getTime() > nowMs;
+    const expired = Boolean(closesAt && new Date(closesAt).getTime() <= nowMs);
+    const effectiveStatus = expired && e.voting_status === "active" ? "closed" : (e.voting_status as string);
     return {
       id: e.id,
       slug: e.slug,
       name: e.name,
       eventType: e.event_type,
       organizerName: orgName(e.organizations as OrgEmbed),
-      votingStatus: e.voting_status,
-      votingOpen: e.voting_status === "active" && e.approval_status === "approved",
+      votingStatus: effectiveStatus,
+      votingOpen:
+        effectiveStatus === "active" &&
+        e.approval_status === "approved" &&
+        pastOpen &&
+        beforeClose,
       contestantsCount: (entries ?? []).filter((x) => x.event_id === e.id).length,
       minUnitPriceMinor: prices.length ? Math.min(...prices) : null,
-      closesAt: e.voting_closes_at,
+      opensAt,
+      closesAt,
       bannerUrl: bannerByEvent.get(e.id) ?? null,
     };
   });
@@ -471,6 +484,14 @@ export async function getPublicEvent(slug: string): Promise<PublicEventDetail | 
     }
   }
 
+  const nowMs = Date.now();
+  const opensAt = (event.voting_opens_at as string | null) ?? null;
+  const closesAt = (event.voting_closes_at as string | null) ?? null;
+  const pastOpen = !opensAt || new Date(opensAt).getTime() <= nowMs;
+  const beforeClose = !closesAt || new Date(closesAt).getTime() > nowMs;
+  const expired = Boolean(closesAt && new Date(closesAt).getTime() <= nowMs);
+  const effectiveStatus = expired && event.voting_status === "active" ? "closed" : (event.voting_status as string);
+
   return {
     id: event.id,
     slug: event.slug,
@@ -480,10 +501,14 @@ export async function getPublicEvent(slug: string): Promise<PublicEventDetail | 
     venue: event.venue,
     eventType: event.event_type,
     organizerName: orgName(event.organizations as OrgEmbed),
-    votingStatus: event.voting_status,
-    votingOpen: event.voting_status === "active" && event.approval_status === "approved",
-    opensAt: event.voting_opens_at,
-    closesAt: event.voting_closes_at,
+    votingStatus: effectiveStatus,
+    votingOpen:
+      effectiveStatus === "active" &&
+      event.approval_status === "approved" &&
+      pastOpen &&
+      beforeClose,
+    opensAt,
+    closesAt,
     bannerUrl,
     galleryPhotos,
     categories,
