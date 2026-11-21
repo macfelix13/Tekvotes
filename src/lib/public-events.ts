@@ -314,7 +314,7 @@ export async function getPublicEvent(slug: string): Promise<PublicEventDetail | 
   const visibleCeIds = rows.filter((r) => catById.get(r.category_id)?.resultsVisible).map((r) => r.id);
   const finalCatIds = categories.filter((c) => c.isFinal).map((c) => c.id);
 
-  const [{ data: people, error: pErr }, { data: tallies, error: tErr }, { data: socialRows }, { data: pubRows }] =
+  const [{ data: people, error: pErr }, { data: tallies, error: tErr }, { data: socialRows }, { data: pubRows }, { data: contestantMediaRows }] =
     await Promise.all([
       contestantIds.length
         ? svc.from("contestants").select("id, display_name, bio, profile_public_id").in("id", contestantIds)
@@ -332,6 +332,16 @@ export async function getPublicEvent(slug: string): Promise<PublicEventDetail | 
             .in("category_id", finalCatIds)
             .eq("state", "final")
             .order("published_at", { ascending: false })
+        : Promise.resolve({ data: [] }),
+      contestantIds.length
+        ? db
+            .from("contestant_media")
+            .select("id, contestant_id, cloudinary_public_id, sort_order, created_at")
+            .in("contestant_id", contestantIds)
+            .eq("moderation_status", "approved")
+            .is("deleted_at", null)
+            .order("sort_order", { ascending: true })
+            .order("created_at", { ascending: false })
         : Promise.resolve({ data: [] }),
     ]);
   if (pErr) throw new Error(`Failed to load contestants: ${pErr.message}`);
@@ -425,12 +435,33 @@ export async function getPublicEvent(slug: string): Promise<PublicEventDetail | 
     }
   }
   const seenContestantPhotos = new Set<string>();
+  const entryByContestantId = new Map<string, PublicCategoryEntry>();
+  for (const r of rows) {
+    const entryObj = entries.find((e) => e.id === r.id);
+    if (entryObj) entryByContestantId.set(r.entry!.contestant_id, entryObj);
+  }
   for (const entry of entries) {
     if (entry.photoUrl && !seenContestantPhotos.has(entry.photoUrl)) {
       seenContestantPhotos.add(entry.photoUrl);
       galleryPhotos.push({
         id: `contestant-${entry.id}`,
         imageUrl: entry.photoUrl,
+        caption: `${entry.name} (${entry.code})`,
+        source: "contestant",
+        contestantName: entry.name,
+        contestantCode: entry.code,
+        categoryName: entry.categoryName,
+      });
+    }
+  }
+  for (const cm of contestantMediaRows ?? []) {
+    const url = String(cm.cloudinary_public_id ?? "");
+    const entry = entryByContestantId.get(String(cm.contestant_id));
+    if (url && entry && !seenContestantPhotos.has(url)) {
+      seenContestantPhotos.add(url);
+      galleryPhotos.push({
+        id: `cmedia-${String(cm.id)}`,
+        imageUrl: url,
         caption: `${entry.name} (${entry.code})`,
         source: "contestant",
         contestantName: entry.name,

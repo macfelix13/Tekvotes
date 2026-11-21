@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { X, Upload, Loader2, Trash2, User } from "lucide-react";
+import { useEffect, useState } from "react";
+import { X, Upload, Loader2, Trash2, User, Images } from "lucide-react";
 
 export interface ModalEventOption {
   id: string;
@@ -76,9 +76,79 @@ export function ContestantProfileModal({
   const [saving, setSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
 
+  const [galleryPhotos, setGalleryPhotos] = useState<Array<{ id: string; cloudinary_public_id: string }>>([]);
+  const [uploadingGallery, setUploadingGallery] = useState(false);
+
   const selectedEvent = events.find((e) => e.id === eventId);
   const organizationId = editing?.organizationId ?? selectedEvent?.organizationId ?? "";
   const eventCategories = categories.filter((c) => c.eventId === (isEdit ? editing?.eventId || eventId : eventId));
+
+  useEffect(() => {
+    if (!editing?.contestantId) return;
+    fetch(`/api/v1/org/contestants/${editing.contestantId}/gallery`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (Array.isArray(d?.items)) {
+          setGalleryPhotos(d.items as Array<{ id: string; cloudinary_public_id: string }>);
+        }
+      })
+      .catch(() => {});
+  }, [editing?.contestantId]);
+
+  const handleGalleryUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !organizationId || !editing?.contestantId) return;
+    setErrorMsg("");
+    setUploadingGallery(true);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      form.append("bucket", "contestant-media");
+      form.append("organizationId", organizationId);
+
+      const uploadRes = await fetch("/api/v1/media/upload", { method: "POST", body: form });
+      const uploadData = await uploadRes.json().catch(() => null);
+      if (!uploadRes.ok || !uploadData?.publicUrl) {
+        setErrorMsg(uploadData?.message || "Gallery photo upload failed.");
+        return;
+      }
+
+      const saveRes = await fetch(`/api/v1/org/contestants/${editing.contestantId}/gallery`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          organizationId,
+          imageUrl: uploadData.publicUrl,
+        }),
+      });
+      const saveData = await saveRes.json().catch(() => null);
+      if (!saveRes.ok || !saveData?.item) {
+        setErrorMsg(saveData?.message || "Could not save contestant gallery photo.");
+        return;
+      }
+      setGalleryPhotos((prev) => [saveData.item as { id: string; cloudinary_public_id: string }, ...prev]);
+    } catch {
+      setErrorMsg("Network error uploading gallery photo.");
+    } finally {
+      setUploadingGallery(false);
+      e.target.value = "";
+    }
+  };
+
+  const handleDeleteGalleryPhoto = async (mediaId: string) => {
+    if (!editing?.contestantId) return;
+    try {
+      const res = await fetch(
+        `/api/v1/org/contestants/${editing.contestantId}/gallery?mediaId=${mediaId}`,
+        { method: "DELETE" }
+      );
+      if (res.ok) {
+        setGalleryPhotos((prev) => prev.filter((p) => p.id !== mediaId));
+      }
+    } catch {
+      // ignore
+    }
+  };
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -247,6 +317,51 @@ export function ContestantProfileModal({
               </div>
             </div>
           </div>
+
+          {isEdit && editing ? (
+            <div className="p-4 rounded-2xl bg-[#F6F7FC] border border-[#D9DBEA] space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-bold text-[#0E1030] inline-flex items-center gap-1.5">
+                  <Images className="w-4 h-4 text-[#4B35E0]" /> Contestant Photo Gallery ({galleryPhotos.length})
+                </span>
+                <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#E8E5FD] text-[#4B35E0] font-bold hover:bg-[#DBD5FC] cursor-pointer shrink-0">
+                  {uploadingGallery ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
+                  <span>{uploadingGallery ? "Uploading..." : "+ Add Gallery Photo"}</span>
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    disabled={uploadingGallery}
+                    onChange={handleGalleryUpload}
+                    className="sr-only"
+                  />
+                </label>
+              </div>
+              {galleryPhotos.length > 0 ? (
+                <div className="grid grid-cols-4 gap-2">
+                  {galleryPhotos.map((g) => (
+                    <div
+                      key={g.id}
+                      className="relative rounded-xl overflow-hidden border border-[#D9DBEA] aspect-square bg-[#0E1030]"
+                    >
+                      <img src={g.cloudinary_public_id} alt={displayName} className="w-full h-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => void handleDeleteGalleryPhoto(g.id)}
+                        title="Remove photo"
+                        className="absolute top-1 right-1 p-1 rounded-md bg-black/75 text-white hover:bg-[#D13A3A] cursor-pointer"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-[11px] text-[#5B5F85]">
+                  Upload additional photoshoot or stage pictures for this contestant. All photos appear in the Event&apos;s public Gallery tab.
+                </p>
+              )}
+            </div>
+          ) : null}
 
           {isEdit && editing ? (
             <div className="grid sm:grid-cols-2 gap-3">

@@ -598,7 +598,7 @@ export function OrgPortalClient({
                               }
                               className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl border border-[#D9DBEA] bg-white text-xs font-bold text-[#0E1030] hover:border-[#4B35E0] hover:text-[#4B35E0] cursor-pointer"
                             >
-                              <Pencil className="w-3 h-3" /> Edit Event
+                              <Pencil className="w-3 h-3" /> Edit Event &amp; Gallery
                             </button>
                             <button
                               type="button"
@@ -875,7 +875,7 @@ export function OrgPortalClient({
                             onClick={() => openEditProfile(c)}
                             className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-[#D9DBEA] bg-white text-[#0E1030] font-semibold hover:border-[#4B35E0] hover:text-[#4B35E0] cursor-pointer"
                           >
-                            <Pencil className="w-3 h-3" /> Edit Profile
+                            <Pencil className="w-3 h-3" /> Edit Profile &amp; Gallery
                           </button>
                         </td>
                       </tr>
