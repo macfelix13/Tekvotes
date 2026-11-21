@@ -220,20 +220,19 @@ export function EventClient({ event, initialCode }: { event: PublicEventDetail; 
                       : "Event Date TBA"
                     : formatDurationBadge(event)}
                 </span>
-                {minPrice != null ? (
+                {!isTicketOnlyEvent && minPrice != null ? (
                   <span className="flex items-center gap-1.5">
                     <Trophy className="w-4 h-4 text-[#F2A900]" /> From GHS {(minPrice / 100).toFixed(2)} / vote
                   </span>
                 ) : null}
                 {event.ticketTiers && event.ticketTiers.length > 0 ? (
-                  <button
-                    type="button"
-                    onClick={() => setTicketDrawerOpen(true)}
-                    className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-[#F2A900] text-[#0E1030] font-bold text-xs hover:bg-[#D99600] cursor-pointer shadow-sm"
+                  <Link
+                    href={`/tickets/${event.slug}`}
+                    className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-[#F2A900] text-[#0E1030] font-bold text-xs hover:bg-[#D99600] shadow-sm"
                   >
                     <Ticket className="w-4 h-4" />
-                    <span>Buy Event Tickets</span>
-                  </button>
+                    <span>Purchase Tickets</span>
+                  </Link>
                 ) : null}
               </div>
             </div>

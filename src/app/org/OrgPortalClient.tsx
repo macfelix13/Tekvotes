@@ -708,10 +708,11 @@ export function OrgPortalClient({
                             )}
                           </div>
                           <Link
-                            href={`/competitions/${ev.slug}`}
+                            href={ev.eventType === "ticketed_event" ? `/tickets/${ev.slug}` : `/competitions/${ev.slug}`}
                             className="inline-flex items-center gap-1 text-xs font-bold text-[#4B35E0] hover:underline"
                           >
-                            View Public Page <ArrowUpRight className="w-3.5 h-3.5" />
+                            {ev.eventType === "ticketed_event" ? "View Ticket Purchase Page" : "View Public Page"}{" "}
+                            <ArrowUpRight className="w-3.5 h-3.5" />
                           </Link>
                         </div>
                       </div>

@@ -3,7 +3,6 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Reveal } from "@/components/ui/Reveal";
-import { TicketCheckoutDrawer } from "@/components/tickets/TicketCheckoutDrawer";
 import type { PublicTicketedEvent } from "@/lib/public-events";
 import { Ticket, MapPin, Building2, Search, ShieldCheck, ArrowRight, Sparkles, Calendar } from "lucide-react";
 
@@ -22,8 +21,6 @@ const formatEventDateTime = (iso: string | null) =>
 
 export function TicketsClient({ events }: { events: PublicTicketedEvent[] }) {
   const [searchInput, setSearchInput] = useState("");
-  const [selectedEvent, setSelectedEvent] = useState<PublicTicketedEvent | null>(null);
-  const [selectedTierId, setSelectedTierId] = useState<string | undefined>(undefined);
 
   const filtered = events.filter((e) => {
     const q = searchInput.trim().toLowerCase();
@@ -85,7 +82,10 @@ export function TicketsClient({ events }: { events: PublicTicketedEvent[] }) {
             return (
               <Reveal key={ev.id} delayMs={Math.min(idx, 5) * 60}>
                 <div className="bg-white rounded-3xl overflow-hidden border border-[#D9DBEA] shadow-xs hover:shadow-xl transition-all flex flex-col group h-full">
-                  <div className="relative aspect-[4/5] w-full bg-[#0E1030] overflow-hidden flex items-end p-5">
+                  <Link
+                    href={`/tickets/${ev.slug}`}
+                    className="relative aspect-[4/5] w-full bg-[#0E1030] overflow-hidden flex items-end p-5 block"
+                  >
                     {ev.ticketFlyerUrl ? (
                       <>
                         <img
@@ -103,13 +103,13 @@ export function TicketsClient({ events }: { events: PublicTicketedEvent[] }) {
                       <Ticket className="w-3.5 h-3.5" />
                       {ev.tiers.length > 0 ? `${ev.tiers.length} Ticket Tier(s)` : "Ticket Event"}
                     </span>
-                  </div>
+                  </Link>
 
                   <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
                     <div className="space-y-2">
                       <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-[#FDF3D6] text-[#C77700] text-xs font-bold">
                         <Calendar className="w-3.5 h-3.5 shrink-0" />
-                        <span>{formatEventDateTime(ev.eventDate)}</span>
+                        <span>Official Date: {formatEventDateTime(ev.eventDate)}</span>
                       </div>
                       <div className="flex items-center justify-between text-xs text-[#5B5F85]">
                         <span className="inline-flex items-center gap-1.5">
@@ -127,62 +127,42 @@ export function TicketsClient({ events }: { events: PublicTicketedEvent[] }) {
                           {ev.tiers.map((t) => {
                             const soldOut = t.capacity != null && t.soldCount >= t.capacity;
                             return (
-                              <button
+                              <Link
                                 key={t.id}
-                                type="button"
-                                disabled={soldOut}
-                                onClick={() => {
-                                  setSelectedEvent(ev);
-                                  setSelectedTierId(t.id);
-                                }}
-                                className="w-full text-left px-3 py-2 rounded-xl bg-[#F6F7FC] hover:bg-[#E8E5FD] border border-[#D9DBEA] flex items-center justify-between text-xs transition-colors cursor-pointer"
+                                href={`/tickets/${ev.slug}`}
+                                className="w-full text-left px-3 py-2 rounded-xl bg-[#F6F7FC] hover:bg-[#E8E5FD] border border-[#D9DBEA] flex items-center justify-between text-xs transition-colors"
                               >
                                 <span className="font-bold text-[#0E1030]">{t.name}</span>
                                 <span className="font-mono font-bold text-[#4B35E0]">
                                   {soldOut ? "SOLD OUT" : `${t.currency} ${(t.priceMinor / 100).toFixed(2)}`}
                                 </span>
-                              </button>
+                              </Link>
                             );
                           })}
                         </div>
                       ) : (
                         <p className="text-xs text-[#5B5F85] pt-1">
-                          Ticket tiers have not been published for this event yet. Visit the competition page to vote or check updates.
+                          Ticket tiers will be published shortly.
                         </p>
                       )}
                     </div>
 
                     <div className="pt-3 border-t border-[#D9DBEA] flex items-center justify-between gap-2">
                       <div>
-                        <span className="text-[11px] text-[#5B5F85] block">
-                          {minPrice != null ? "Starting from" : "Status"}
-                        </span>
+                        <span className="text-[11px] text-[#5B5F85] block">Ticket Price</span>
                         <span className="font-heading font-bold text-sm text-[#0E1030]">
-                          {minPrice != null ? `GHS ${(minPrice / 100).toFixed(2)}` : "Voting Active"}
+                          {minPrice != null ? `From GHS ${(minPrice / 100).toFixed(2)}` : "Coming Soon"}
                         </span>
                       </div>
 
-                      {ev.tiers.length > 0 ? (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setSelectedEvent(ev);
-                            setSelectedTierId(ev.tiers[0]?.id);
-                          }}
-                          className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-[#4B35E0] text-white font-bold text-xs hover:bg-[#3B28B8] cursor-pointer shadow-xs"
-                        >
-                          <Ticket className="w-3.5 h-3.5" />
-                          <span>Buy Tickets</span>
-                        </button>
-                      ) : (
-                        <Link
-                          href={`/competitions/${ev.slug}`}
-                          className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-[#D9DBEA] text-[#0E1030] font-bold text-xs hover:border-[#4B35E0]"
-                        >
-                          <span>View Event</span>
-                          <ArrowRight className="w-3.5 h-3.5" />
-                        </Link>
-                      )}
+                      <Link
+                        href={`/tickets/${ev.slug}`}
+                        className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-[#4B35E0] text-white font-bold text-xs hover:bg-[#3B28B8] shadow-xs"
+                      >
+                        <Ticket className="w-3.5 h-3.5" />
+                        <span>Purchase Tickets</span>
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </Link>
                     </div>
                   </div>
                 </div>
@@ -191,16 +171,6 @@ export function TicketsClient({ events }: { events: PublicTicketedEvent[] }) {
           })}
         </div>
       )}
-
-      {selectedEvent && selectedEvent.tiers.length > 0 ? (
-        <TicketCheckoutDrawer
-          eventName={selectedEvent.name}
-          venue={selectedEvent.venue}
-          tiers={selectedEvent.tiers}
-          initialTierId={selectedTierId}
-          onClose={() => setSelectedEvent(null)}
-        />
-      ) : null}
     </div>
   );
 }
