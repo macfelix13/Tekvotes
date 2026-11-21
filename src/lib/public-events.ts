@@ -49,10 +49,22 @@ export interface PublicVotePackage {
   priceMinor: number;
 }
 
+export interface PublicEventGalleryPhoto {
+  id: string;
+  imageUrl: string;
+  caption: string;
+  source: "event" | "contestant";
+  contestantName?: string;
+  contestantCode?: string;
+  categoryName?: string;
+}
+
 export interface PublicEventDetail extends Omit<PublicEventSummary, "contestantsCount" | "minUnitPriceMinor"> {
   description: string | null;
+  rulesText: string | null;
   venue: string | null;
   opensAt: string | null;
+  galleryPhotos: PublicEventGalleryPhoto[];
   categories: {
     id: string;
     name: string;
@@ -223,7 +235,7 @@ export async function getPublicEvent(slug: string): Promise<PublicEventDetail | 
   const { data: event, error } = await db
     .from("events")
     .select(
-      "id, slug, name, description, venue, event_type, voting_status, approval_status, voting_opens_at, voting_closes_at, organizations(name)"
+      "id, slug, name, description, rules_text, venue, event_type, voting_status, approval_status, voting_opens_at, voting_closes_at, organizations(name)"
     )
     .eq("slug", slug)
     .limit(1)
@@ -231,7 +243,7 @@ export async function getPublicEvent(slug: string): Promise<PublicEventDetail | 
   if (error) throw new Error(`Failed to load event: ${error.message}`);
   if (!event) return null;
 
-  const [{ data: cats, error: catErr }, { data: catEntries, error: ceErr }, { data: branding }, { data: pkgRows }] =
+  const [{ data: cats, error: catErr }, { data: catEntries, error: ceErr }, { data: branding }, { data: pkgRows }, { data: galleryRows }] =
     await Promise.all([
       db
         .from("event_categories")
@@ -254,6 +266,12 @@ export async function getPublicEvent(slug: string): Promise<PublicEventDetail | 
         .eq("event_id", event.id)
         .eq("active", true)
         .order("sort_order"),
+      db
+        .from("event_gallery_media")
+        .select("id, image_url, caption, sort_order, created_at")
+        .eq("event_id", event.id)
+        .order("sort_order", { ascending: true })
+        .order("created_at", { ascending: false }),
     ]);
   if (catErr) throw new Error(`Failed to load categories: ${catErr.message}`);
   if (ceErr) throw new Error(`Failed to load entries: ${ceErr.message}`);
@@ -385,11 +403,49 @@ export async function getPublicEvent(slug: string): Promise<PublicEventDetail | 
     };
   });
 
+  const bannerUrl = (branding?.banner_public_id as string | null) ?? null;
+
+  const galleryPhotos: PublicEventGalleryPhoto[] = [];
+  if (bannerUrl) {
+    galleryPhotos.push({
+      id: `banner-${event.id}`,
+      imageUrl: bannerUrl,
+      caption: `${event.name} — Official Event Cover`,
+      source: "event",
+    });
+  }
+  for (const g of galleryRows ?? []) {
+    if (g.image_url) {
+      galleryPhotos.push({
+        id: String(g.id),
+        imageUrl: String(g.image_url),
+        caption: String(g.caption || event.name),
+        source: "event",
+      });
+    }
+  }
+  const seenContestantPhotos = new Set<string>();
+  for (const entry of entries) {
+    if (entry.photoUrl && !seenContestantPhotos.has(entry.photoUrl)) {
+      seenContestantPhotos.add(entry.photoUrl);
+      galleryPhotos.push({
+        id: `contestant-${entry.id}`,
+        imageUrl: entry.photoUrl,
+        caption: `${entry.name} (${entry.code})`,
+        source: "contestant",
+        contestantName: entry.name,
+        contestantCode: entry.code,
+        categoryName: entry.categoryName,
+      });
+    }
+  }
+
   return {
     id: event.id,
     slug: event.slug,
     name: event.name,
     description: event.description,
+    rulesText: (event.rules_text as string | null) ?? null,
     venue: event.venue,
     eventType: event.event_type,
     organizerName: orgName(event.organizations as OrgEmbed),
@@ -397,7 +453,8 @@ export async function getPublicEvent(slug: string): Promise<PublicEventDetail | 
     votingOpen: event.voting_status === "active" && event.approval_status === "approved",
     opensAt: event.voting_opens_at,
     closesAt: event.voting_closes_at,
-    bannerUrl: (branding?.banner_public_id as string | null) ?? null,
+    bannerUrl,
+    galleryPhotos,
     categories,
     entries,
   };

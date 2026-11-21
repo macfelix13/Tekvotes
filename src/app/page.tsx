@@ -287,14 +287,14 @@ export default async function HomePage() {
             </Reveal>
 
             {/* Events Grid */}
-            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              {liveEvents.slice(0, 4).map((event, idx) => {
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-7">
+              {liveEvents.slice(0, 6).map((event, idx) => {
                 const badge = formatType(event.eventType);
                 return (
                   <Reveal key={event.id} delayMs={idx * 70}>
-                    <div className="bg-white rounded-2xl overflow-hidden border border-[#D9DBEA] shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col group h-full">
+                    <div className="bg-white rounded-3xl overflow-hidden border border-[#D9DBEA] shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col group h-full">
                     {/* Poster Header */}
-                    <div className="relative aspect-[4/3] w-full bg-[#0E1030] overflow-hidden flex items-end p-4">
+                    <div className="relative aspect-[4/5] w-full bg-[#0E1030] overflow-hidden flex items-end p-5">
                       {event.bannerUrl ? (
                         <>
                           <img
@@ -302,14 +302,14 @@ export default async function HomePage() {
                             alt={event.name}
                             className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                           />
-                          <div className="absolute inset-0 bg-gradient-to-t from-[#0E1030]/90 via-[#0E1030]/35 to-transparent" />
+                          <div className="absolute inset-0 bg-gradient-to-t from-[#0E1030] via-[#0E1030]/45 to-transparent" />
                         </>
                       ) : null}
-                      <span className="relative z-10 font-heading font-extrabold text-white/95 text-xl leading-tight line-clamp-2">
+                      <span className="relative z-10 font-heading font-extrabold text-white text-2xl leading-tight line-clamp-2 drop-shadow-md">
                         {event.name}
                       </span>
                       <span
-                        className={`relative z-10 absolute top-3 left-3 text-[11px] font-bold text-white px-2.5 py-1 rounded-full ${badge.color} shadow-xs`}
+                        className={`relative z-10 absolute top-3.5 left-3.5 text-xs font-bold text-white px-3 py-1 rounded-full ${badge.color} shadow-xs`}
                       >
                         {badge.label}
                       </span>

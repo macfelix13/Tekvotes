@@ -85,13 +85,13 @@ export function CompetitionsClient({ events }: { events: PublicEventSummary[] })
           {events.length === 0 ? "No competitions are published yet." : "No competitions match your search."}
         </div>
       ) : (
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-7">
           {filteredEvents.map((event, idx) => {
             const bucket = bucketFor(event.eventType);
             return (
               <Reveal key={event.id} delayMs={Math.min(idx, 5) * 60}>
-                <div className="bg-white rounded-2xl overflow-hidden border border-[#D9DBEA] shadow-xs hover:shadow-lg transition-all flex flex-col group h-full">
-                <div className="relative aspect-[16/9] w-full bg-[#0E1030] overflow-hidden flex items-end p-4">
+                <div className="bg-white rounded-3xl overflow-hidden border border-[#D9DBEA] shadow-xs hover:shadow-xl transition-all flex flex-col group h-full">
+                <div className="relative aspect-[4/5] w-full bg-[#0E1030] overflow-hidden flex items-end p-5">
                   {event.bannerUrl ? (
                     <>
                       <img
@@ -99,17 +99,17 @@ export function CompetitionsClient({ events }: { events: PublicEventSummary[] })
                         alt={event.name}
                         className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                       />
-                      <div className="absolute inset-0 bg-gradient-to-t from-[#0E1030]/90 via-[#0E1030]/35 to-transparent" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-[#0E1030] via-[#0E1030]/45 to-transparent" />
                     </>
                   ) : null}
-                  <span className="relative z-10 font-heading font-extrabold text-white/95 text-2xl leading-tight line-clamp-2">
+                  <span className="relative z-10 font-heading font-extrabold text-white text-2xl leading-tight line-clamp-2 drop-shadow-md">
                     {event.name}
                   </span>
-                  <span className="relative z-10 absolute top-3 left-3 text-[11px] font-bold text-white px-2.5 py-1 rounded-full bg-[#4B35E0] shadow-xs">
+                  <span className="relative z-10 absolute top-3.5 left-3.5 text-xs font-bold text-white px-3 py-1 rounded-full bg-[#4B35E0] shadow-xs">
                     {bucket}
                   </span>
                   <span
-                    className={`relative z-10 absolute top-3 right-3 text-[11px] font-bold px-2.5 py-1 rounded-full ${
+                    className={`relative z-10 absolute top-3.5 right-3.5 text-xs font-bold px-3 py-1 rounded-full ${
                       event.votingOpen ? "bg-[#E6F8F0] text-[#0F9D6B]" : "bg-[#FDF3D6] text-[#C77700]"
                     }`}
                   >
