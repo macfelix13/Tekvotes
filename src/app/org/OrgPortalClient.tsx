@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Navbar } from "@/components/navigation/Navbar";
+import { downloadCsv } from "@/lib/csv";
 import type { OrgMembership } from "@/lib/auth";
 import {
   ContestantProfileModal,
@@ -30,6 +31,7 @@ import {
   Upload,
   Pencil,
   User,
+  Download,
 } from "lucide-react";
 
 export interface OrgEventRow {
@@ -682,14 +684,30 @@ export function OrgPortalClient({
                     Upload portrait photos, manage bios &amp; social links, and assign short codes.
                   </p>
                 </div>
-                <button
-                  type="button"
-                  disabled={events.length === 0}
-                  onClick={openCreateProfile}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#4B35E0] text-white text-xs font-bold hover:bg-[#3B28B8] disabled:opacity-50 cursor-pointer"
-                >
-                  <Plus className="w-3.5 h-3.5" /> Add Contestant Profile
-                </button>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    disabled={contestants.length === 0}
+                    onClick={() =>
+                      downloadCsv(
+                        `${org.slug}-contestant-tallies-${new Date().toISOString().slice(0, 10)}.csv`,
+                        ["Short Code", "Name", "Event", "Category", "Status", "Votes"],
+                        contestants.map((c) => [c.code, c.name, c.eventName, c.categoryName, c.status, c.votes])
+                      )
+                    }
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-[#D9DBEA] bg-white text-[#0E1030] text-xs font-bold hover:border-[#4B35E0] disabled:opacity-50 cursor-pointer"
+                  >
+                    <Download className="w-3.5 h-3.5" /> Export Tallies CSV
+                  </button>
+                  <button
+                    type="button"
+                    disabled={events.length === 0}
+                    onClick={openCreateProfile}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#4B35E0] text-white text-xs font-bold hover:bg-[#3B28B8] disabled:opacity-50 cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> Add Contestant Profile
+                  </button>
+                </div>
               </div>
 
               <div className="overflow-x-auto">

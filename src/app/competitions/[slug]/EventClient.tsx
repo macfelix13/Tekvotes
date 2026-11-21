@@ -5,7 +5,7 @@ import { Navbar } from "@/components/navigation/Navbar";
 import { Reveal } from "@/components/ui/Reveal";
 import { VotingDrawer, type Contestant } from "@/components/voting/VotingDrawer";
 import type { PublicEventDetail, PublicCategoryEntry } from "@/lib/public-events";
-import { Building2, Calendar, Trophy, Search, Flame, BarChart3, Users, Lock } from "lucide-react";
+import { Building2, Calendar, Trophy, Search, Flame, BarChart3, Users, Lock, Share2, Check } from "lucide-react";
 
 const initials = (name: string) =>
   name
@@ -32,11 +32,40 @@ function Portrait({ name, photoUrl, className }: { name: string; photoUrl: strin
   );
 }
 
-export function EventClient({ event }: { event: PublicEventDetail }) {
-  const [selected, setSelected] = useState<PublicCategoryEntry | null>(null);
+export function EventClient({ event, initialCode }: { event: PublicEventDetail; initialCode?: string }) {
+  const cleanedInitial = initialCode?.trim() ?? "";
+  const initialMatch = cleanedInitial
+    ? event.entries.find((e) => e.code.toLowerCase() === cleanedInitial.toLowerCase()) ?? null
+    : null;
+
+  const [selected, setSelected] = useState<PublicCategoryEntry | null>(
+    event.votingOpen && initialMatch ? initialMatch : null
+  );
   const [activeTab, setActiveTab] = useState<"contestants" | "leaderboard">("contestants");
-  const [searchTerm, setSearchTerm] = useState("");
+  const [searchTerm, setSearchTerm] = useState(cleanedInitial);
   const [activeCategoryId, setActiveCategoryId] = useState<string>("all");
+  const [copiedCode, setCopiedCode] = useState<string | null>(null);
+
+  const handleShareContestant = async (c: PublicCategoryEntry) => {
+    const shareUrl = `${window.location.origin}/competitions/${event.slug}?code=${encodeURIComponent(c.code)}`;
+    if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
+      try {
+        await navigator.share({
+          title: `Vote for ${c.name} (${c.code}) — ${event.name}`,
+          text: `Support ${c.name} in ${event.name} on TekVotes!`,
+          url: shareUrl,
+        });
+        return;
+      } catch {
+        // Fall through to clipboard copy if user cancels native share
+      }
+    }
+    if (typeof navigator !== "undefined" && navigator.clipboard) {
+      await navigator.clipboard.writeText(shareUrl).catch(() => {});
+      setCopiedCode(c.id);
+      setTimeout(() => setCopiedCode((prev) => (prev === c.id ? null : prev)), 2000);
+    }
+  };
 
   const minPrice = event.categories.length ? Math.min(...event.categories.map((c) => c.unitPriceMinor)) : null;
 
@@ -203,6 +232,15 @@ export function EventClient({ event }: { event: PublicEventDetail }) {
                       <span className="absolute top-3 left-3 font-mono font-bold text-xs bg-[#0E1030]/80 text-white px-2.5 py-1 rounded-md border border-white/20">
                         Code: {c.code}
                       </span>
+                      <button
+                        type="button"
+                        onClick={() => void handleShareContestant(c)}
+                        title="Share contestant vote link"
+                        className="absolute top-3 right-3 inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-[#0E1030]/80 hover:bg-[#4B35E0] text-white text-[11px] font-semibold border border-white/20 transition-colors cursor-pointer"
+                      >
+                        {copiedCode === c.id ? <Check className="w-3 h-3 text-[#0F9D6B]" /> : <Share2 className="w-3 h-3" />}
+                        <span>{copiedCode === c.id ? "Copied" : "Share"}</span>
+                      </button>
                       <div className="absolute bottom-3 left-3 right-3 text-white">
                         <span className="text-[11px] font-semibold text-[#F2A900] block">{c.categoryName}</span>
                         <h3 className="font-heading font-bold text-base leading-tight">{c.name}</h3>

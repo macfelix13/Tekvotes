@@ -163,12 +163,74 @@ export async function fulfillPaystackOrderByReference(reference: string): Promis
   }
 
   const credited = Boolean(ok);
+
+  if (credited) {
+    void sendVoterReceiptEmail(supabase, order.id, order.reference).catch((err) => {
+      console.warn("Voter receipt email failed:", err instanceof Error ? err.message : err);
+    });
+  }
+
   return {
     found: true,
     status: credited ? "credited" : "paid_uncredited",
     credited,
     alreadyFinal: false,
   };
+}
+
+async function sendVoterReceiptEmail(
+  supabase: ReturnType<typeof createAdminClient>,
+  orderId: string,
+  reference: string
+): Promise<void> {
+  const resendKey = process.env.RESEND_API_KEY;
+  if (!resendKey) return;
+
+  const [{ data: orderRow }, { data: receiptData }] = await Promise.all([
+    supabase.from("voting_orders").select("voters(email)").eq("id", orderId).maybeSingle(),
+    supabase.rpc("app_get_receipt_by_reference", { p_reference: reference }),
+  ]);
+
+  type VoterJoin = { email: string | null } | { email: string | null }[] | null;
+  const vRaw = (orderRow?.voters ?? null) as VoterJoin;
+  const voterEmail = Array.isArray(vRaw) ? vRaw[0]?.email : vRaw?.email;
+  if (!voterEmail || !receiptData) return;
+
+  const receipt = receiptData as ReceiptRecord;
+  const auditHash = computeAuditHash(receipt) ?? "Pending";
+  const fromEmail = process.env.NOTIFICATIONS_FROM_EMAIL || "onboarding@resend.dev";
+  const totalFormatted = `${receipt.currency} ${(receipt.totalAmountMinor / 100).toFixed(2)}`;
+
+  await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${resendKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from: fromEmail,
+      to: [voterEmail],
+      subject: `TekVotes Receipt ${receipt.reference} — ${receipt.votes} vote(s) for ${receipt.contestantName}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 520px; margin: 0 auto; padding: 24px; border: 1px solid #D9DBEA; border-radius: 16px;">
+          <h2 style="color: #0E1030; margin-bottom: 8px;">Vote Credited Successfully</h2>
+          <p style="color: #5B5F85; font-size: 14px;">
+            Thank you for voting in <strong>${receipt.eventName}</strong>.
+          </p>
+          <table style="width: 100%; font-size: 13px; border-collapse: collapse; margin: 16px 0;">
+            <tr><td style="padding: 6px 0; color: #5B5F85;">Reference</td><td style="font-weight: bold; text-align: right;">${receipt.reference}</td></tr>
+            <tr><td style="padding: 6px 0; color: #5B5F85;">Contestant</td><td style="font-weight: bold; text-align: right;">${receipt.contestantName} (${receipt.contestantCode})</td></tr>
+            <tr><td style="padding: 6px 0; color: #5B5F85;">Category</td><td style="text-align: right;">${receipt.categoryName}</td></tr>
+            <tr><td style="padding: 6px 0; color: #5B5F85;">Votes Credited</td><td style="font-weight: bold; color: #4B35E0; text-align: right;">${receipt.votes}</td></tr>
+            <tr><td style="padding: 6px 0; color: #5B5F85;">Total Paid</td><td style="font-weight: bold; text-align: right;">${totalFormatted}</td></tr>
+          </table>
+          <p style="color: #8A8EAE; font-size: 11px; word-break: break-all;">
+            Audit Hash: ${auditHash}
+          </p>
+        </div>
+      `,
+    }),
+  });
 }
 
 export interface ReceiptRecord {

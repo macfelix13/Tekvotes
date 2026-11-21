@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Navbar } from "@/components/navigation/Navbar";
+import { downloadCsv } from "@/lib/csv";
 import {
   ContestantProfileModal,
   type EditableContestantProfile,
@@ -29,6 +30,7 @@ import {
   Pencil,
   Search,
   User,
+  Download,
 } from "lucide-react";
 
 export interface AdminEventFundRow {
@@ -498,9 +500,48 @@ export function AdminConsoleClient({
                       Per-Event Fund Records &amp; Lifecycle Controls
                     </h2>
                   </div>
-                  <span className="text-xs font-semibold text-[#0F9D6B] bg-[#E6F8F0] px-3 py-1 rounded-full">
-                    Double-Entry Balanced (SUM Debit = SUM Credit)
-                  </span>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-xs font-semibold text-[#0F9D6B] bg-[#E6F8F0] px-3 py-1 rounded-full">
+                      Double-Entry Balanced (SUM Debit = SUM Credit)
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        downloadCsv(
+                          `tekvotes-treasury-${new Date().toISOString().slice(0, 10)}.csv`,
+                          [
+                            "Event Code",
+                            "Event Name",
+                            "Organization",
+                            "Approval",
+                            "Voting",
+                            "Fee %",
+                            "Gross Collected",
+                            "Commission",
+                            "Pending Escrow",
+                            "Available",
+                            "Currency",
+                          ],
+                          eventFunds.map((e) => [
+                            e.eventCode,
+                            e.eventName,
+                            e.orgName,
+                            e.approvalStatus,
+                            e.votingStatus,
+                            (e.commissionBps / 100).toFixed(1),
+                            (e.grossCollectedMinor / 100).toFixed(2),
+                            (e.commissionMinor / 100).toFixed(2),
+                            (e.pendingEscrowMinor / 100).toFixed(2),
+                            (e.availableMinor / 100).toFixed(2),
+                            e.currency,
+                          ])
+                        )
+                      }
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-[#D9DBEA] bg-white text-xs font-bold text-[#0E1030] hover:border-[#4B35E0] cursor-pointer"
+                    >
+                      <Download className="w-3.5 h-3.5" /> Export CSV
+                    </button>
+                  </div>
                 </div>
 
                 <div className="overflow-x-auto">
