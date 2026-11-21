@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Navbar } from "@/components/navigation/Navbar";
-import { CheckCircle2, ArrowRight, ShieldCheck, Landmark, Sparkles } from "lucide-react";
+import { Reveal } from "@/components/ui/Reveal";
+import { ArrowRight } from "lucide-react";
 
 export default function PricingPage() {
   return (
@@ -9,7 +10,7 @@ export default function PricingPage() {
 
       <main className="flex-1 py-16">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
-          <div className="text-center max-w-2xl mx-auto space-y-3">
+          <Reveal className="text-center max-w-2xl mx-auto space-y-3">
             <span className="text-xs font-bold uppercase tracking-wider text-[#4B35E0]">
               Transparent Economics (OD-01 / OD-02 / OD-07)
             </span>
@@ -19,9 +20,10 @@ export default function PricingPage() {
             <p className="text-sm sm:text-base text-[#5B5F85]">
               Create unlimited categories, contestants, and judging panels for free. TekVotes only earns a standard percentage commission on base votes collected.
             </p>
-          </div>
+          </Reveal>
 
-          <div className="grid md:grid-cols-3 gap-6">
+          <Reveal delayMs={90}>
+            <div className="grid md:grid-cols-3 gap-6">
             <div className="bg-white rounded-3xl p-6 border border-[#D9DBEA] shadow-sm space-y-4">
               <span className="text-xs font-bold uppercase text-[#4B35E0]">1 · Event Setup</span>
               <div className="font-heading font-extrabold text-3xl text-[#0E1030]">GHS 0.00</div>
@@ -46,6 +48,7 @@ export default function PricingPage() {
               </p>
             </div>
           </div>
+          </Reveal>
 
           <div className="text-center pt-4">
             <Link

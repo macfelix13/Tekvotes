@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { Reveal } from "@/components/ui/Reveal";
 import { ArrowRight, Building2, Search, Filter } from "lucide-react";
 import type { PublicEventSummary } from "@/lib/public-events";
 
@@ -85,13 +86,11 @@ export function CompetitionsClient({ events }: { events: PublicEventSummary[] })
         </div>
       ) : (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredEvents.map((event) => {
+          {filteredEvents.map((event, idx) => {
             const bucket = bucketFor(event.eventType);
             return (
-              <div
-                key={event.id}
-                className="bg-white rounded-2xl overflow-hidden border border-[#D9DBEA] shadow-xs hover:shadow-lg transition-all flex flex-col group"
-              >
+              <Reveal key={event.id} delayMs={Math.min(idx, 5) * 60}>
+                <div className="bg-white rounded-2xl overflow-hidden border border-[#D9DBEA] shadow-xs hover:shadow-lg transition-all flex flex-col group h-full">
                 <div className="relative aspect-[16/9] w-full bg-[#0E1030] overflow-hidden flex items-end p-4">
                   {event.bannerUrl ? (
                     <>
@@ -148,7 +147,8 @@ export function CompetitionsClient({ events }: { events: PublicEventSummary[] })
                     </Link>
                   </div>
                 </div>
-              </div>
+                </div>
+              </Reveal>
             );
           })}
         </div>

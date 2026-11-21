@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Navbar } from "@/components/navigation/Navbar";
+import { Reveal } from "@/components/ui/Reveal";
 import { MessageCircle, Mail, MapPin, Send, CheckCircle2, AlertCircle } from "lucide-react";
 
 export default function ContactPage() {
@@ -47,7 +48,7 @@ export default function ContactPage() {
       <Navbar />
       <main className="flex-1 py-16">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
-          <div className="text-center space-y-2">
+          <Reveal className="text-center space-y-2">
             <span className="text-xs font-bold uppercase tracking-wider text-[#4B35E0]">Helpdesk &amp; Support</span>
             <h1 className="font-heading font-extrabold text-3xl sm:text-4xl text-[#0E1030]">
               Contact TekVotes Ghana
@@ -55,9 +56,10 @@ export default function ContactPage() {
             <p className="text-sm text-[#5B5F85]">
               Our voter support and organizer onboarding teams are available 24/7.
             </p>
-          </div>
+          </Reveal>
 
-          <div className="grid sm:grid-cols-3 gap-6">
+          <Reveal delayMs={80}>
+            <div className="grid sm:grid-cols-3 gap-6">
             <div className="bg-white p-6 rounded-2xl border border-[#D9DBEA] shadow-xs space-y-2">
               <MessageCircle className="w-6 h-6 text-[#25D366]" />
               <h3 className="font-heading font-bold text-base text-[#0E1030]">Voter Receipt Lookup</h3>
@@ -88,8 +90,10 @@ export default function ContactPage() {
               <p className="text-xs text-[#5B5F85]">Accra Digital Centre, Ring Road West, Accra, Ghana.</p>
             </div>
           </div>
+          </Reveal>
 
-          <div className="bg-white rounded-3xl border border-[#D9DBEA] p-6 sm:p-8 shadow-xs space-y-5">
+          <Reveal delayMs={140}>
+            <div className="bg-white rounded-3xl border border-[#D9DBEA] p-6 sm:p-8 shadow-xs space-y-5">
             <div>
               <h2 className="font-heading font-bold text-xl text-[#0E1030]">Send a Support Message</h2>
               <p className="text-xs text-[#5B5F85] mt-0.5">
@@ -171,6 +175,7 @@ export default function ContactPage() {
               </button>
             </form>
           </div>
+          </Reveal>
         </div>
       </main>
     </div>

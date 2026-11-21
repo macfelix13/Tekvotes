@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Navbar } from "@/components/navigation/Navbar";
 import { HomeSearch } from "@/components/search/HomeSearch";
+import { Reveal } from "@/components/ui/Reveal";
 import { listPublicEvents, getPublicEvent } from "@/lib/public-events";
 import {
   ArrowRight,
@@ -43,13 +44,13 @@ export default async function HomePage() {
 
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
             <div className="grid lg:grid-cols-12 gap-12 items-center">
-              <div className="lg:col-span-7 space-y-6 text-center lg:text-left">
+              <div className="lg:col-span-7 space-y-6 text-center lg:text-left animate-hero-in">
                 <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/10 text-[#F2A900] text-xs font-semibold uppercase tracking-wider backdrop-blur-xs border border-white/10">
                   <Sparkles className="w-4 h-4 fill-[#F2A900]" />
                   Next-Gen Competition & Pageant Voting in Ghana
                 </div>
 
-                <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight leading-[1.15]">
+                <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight leading-[1.15] text-white">
                   Cast Your Vote for Ghana&apos;s Next <span className="text-[#F2A900]">Champions</span>
                 </h1>
 
@@ -75,8 +76,23 @@ export default async function HomePage() {
                 </div>
               </div>
 
-              {/* Right Hero Card / Live Event Preview */}
-              <div className="lg:col-span-5 relative">
+              {/* Right Hero Visual + Live Event Preview */}
+              <div className="lg:col-span-5 relative space-y-4 animate-hero-in" style={{ animationDelay: "120ms" }}>
+                <div className="relative mx-auto max-w-md rounded-3xl overflow-hidden border border-white/15 shadow-2xl bg-[#1A1D47]">
+                  <img
+                    src="/images/hero-voter.jpg"
+                    alt="Excited TekVotes supporter voting on mobile"
+                    className="w-full h-56 sm:h-64 object-cover object-top"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#0E1030]/80 via-transparent to-transparent pointer-events-none" />
+                  <div className="absolute bottom-3 left-4 right-4 flex items-center justify-between text-xs text-white">
+                    <span className="font-semibold">Instant MoMo &amp; Card Voting</span>
+                    <span className="px-2.5 py-0.5 rounded-full bg-[#F2A900] text-[#0E1030] font-bold">
+                      Verified Live
+                    </span>
+                  </div>
+                </div>
+
                 <div className="relative mx-auto max-w-md rounded-2xl bg-white text-[#0E1030] p-6 shadow-2xl border border-white/20">
                   <div className="flex items-center justify-between pb-4 border-b border-[#D9DBEA]">
                     <div>
@@ -157,7 +173,7 @@ export default async function HomePage() {
         {/* Voting Process: How to Vote for a Contestant (Screenshots 3 reference) */}
         <section className="py-20 bg-white">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="text-center max-w-2xl mx-auto mb-16">
+            <Reveal className="text-center max-w-2xl mx-auto mb-16">
               <span className="text-xs font-bold uppercase tracking-wider text-[#4B35E0]">Voting Process</span>
               <h2 className="text-3xl sm:text-4xl font-extrabold text-[#0E1030] mt-1.5">
                 How to Vote for a Contestant
@@ -165,11 +181,12 @@ export default async function HomePage() {
               <p className="text-base text-[#5B5F85] mt-2">
                 Voting takes less than 30 seconds with zero registration required for voters.
               </p>
-            </div>
+            </Reveal>
 
             <div className="grid md:grid-cols-3 gap-8">
               {/* Step 01 */}
-              <div className="relative p-8 rounded-2xl bg-[#F6F7FC] border border-[#D9DBEA] hover:border-[#4B35E0]/40 transition-all hover:shadow-lg group">
+              <Reveal delayMs={0}>
+                <div className="relative p-8 rounded-2xl bg-[#F6F7FC] border border-[#D9DBEA] hover:border-[#4B35E0]/40 transition-all hover:shadow-lg group h-full">
                 <span className="absolute top-6 right-6 font-heading font-black text-4xl text-[#D9DBEA] group-hover:text-[#4B35E0]/20 transition-colors">
                   01
                 </span>
@@ -182,10 +199,12 @@ export default async function HomePage() {
                 <p className="text-sm text-[#5B5F85] leading-relaxed">
                   Search for your contestant using their short code (e.g. <span className="font-mono font-semibold text-[#0E1030]">AS01</span>) or name, or browse directly through the competition categories.
                 </p>
-              </div>
+                </div>
+              </Reveal>
 
               {/* Step 02 */}
-              <div className="relative p-8 rounded-2xl bg-[#F6F7FC] border border-[#D9DBEA] hover:border-[#4B35E0]/40 transition-all hover:shadow-lg group">
+              <Reveal delayMs={90}>
+                <div className="relative p-8 rounded-2xl bg-[#F6F7FC] border border-[#D9DBEA] hover:border-[#4B35E0]/40 transition-all hover:shadow-lg group h-full">
                 <span className="absolute top-6 right-6 font-heading font-black text-4xl text-[#D9DBEA] group-hover:text-[#4B35E0]/20 transition-colors">
                   02
                 </span>
@@ -198,10 +217,12 @@ export default async function HomePage() {
                 <p className="text-sm text-[#5B5F85] leading-relaxed">
                   Your vote counts. Select convenient bundles or enter any custom whole-vote amount you like to boost your favourite contestant.
                 </p>
-              </div>
+                </div>
+              </Reveal>
 
               {/* Step 03 */}
-              <div className="relative p-8 rounded-2xl bg-[#F6F7FC] border border-[#D9DBEA] hover:border-[#4B35E0]/40 transition-all hover:shadow-lg group">
+              <Reveal delayMs={180}>
+                <div className="relative p-8 rounded-2xl bg-[#F6F7FC] border border-[#D9DBEA] hover:border-[#4B35E0]/40 transition-all hover:shadow-lg group h-full">
                 <span className="absolute top-6 right-6 font-heading font-black text-4xl text-[#D9DBEA] group-hover:text-[#4B35E0]/20 transition-colors">
                   03
                 </span>
@@ -214,7 +235,8 @@ export default async function HomePage() {
                 <p className="text-sm text-[#5B5F85] leading-relaxed">
                   Choose your preferred payment option (MTN Mobile Money, Telecel Cash, AT Money, or Card) and approve the payment prompt on your phone.
                 </p>
-              </div>
+                </div>
+              </Reveal>
             </div>
           </div>
         </section>
@@ -222,7 +244,7 @@ export default async function HomePage() {
         {/* Active and Ongoing Voting (Screenshots 4 reference) */}
         <section className="py-20 bg-[#F6F7FC] border-t border-[#D9DBEA]">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-12">
+            <Reveal className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-12">
               <div>
                 <span className="text-xs font-bold uppercase tracking-wider text-[#4B35E0]">Events</span>
                 <h2 className="text-3xl sm:text-4xl font-extrabold text-[#0E1030] mt-1">
@@ -240,17 +262,15 @@ export default async function HomePage() {
                 Browse All
                 <ArrowRight className="w-4 h-4" />
               </Link>
-            </div>
+            </Reveal>
 
             {/* Events Grid */}
             <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              {liveEvents.slice(0, 4).map((event) => {
+              {liveEvents.slice(0, 4).map((event, idx) => {
                 const badge = formatType(event.eventType);
                 return (
-                  <div
-                    key={event.id}
-                    className="bg-white rounded-2xl overflow-hidden border border-[#D9DBEA] shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col group"
-                  >
+                  <Reveal key={event.id} delayMs={idx * 70}>
+                    <div className="bg-white rounded-2xl overflow-hidden border border-[#D9DBEA] shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col group h-full">
                     {/* Poster Header */}
                     <div className="relative aspect-[4/3] w-full bg-[#0E1030] overflow-hidden flex items-end p-4">
                       {event.bannerUrl ? (
@@ -294,7 +314,8 @@ export default async function HomePage() {
                         <ArrowRight className="w-4 h-4" />
                       </Link>
                     </div>
-                  </div>
+                    </div>
+                  </Reveal>
                 );
               })}
             </div>
@@ -304,7 +325,7 @@ export default async function HomePage() {
         {/* Organiser Callout & "About TekVotes" (Screenshots 1 & 2 reference) */}
         <section id="about" className="py-20 bg-white border-t border-[#D9DBEA]">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="grid lg:grid-cols-12 gap-12 items-center">
+            <Reveal className="grid lg:grid-cols-12 gap-12 items-center">
               {/* Left Column: Organiser Headline & Actions */}
               <div className="lg:col-span-7 space-y-6">
                 <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#E8E5FD] text-[#4B35E0] text-xs font-semibold uppercase tracking-wider">
@@ -374,7 +395,7 @@ export default async function HomePage() {
                   </div>
                 </div>
               </div>
-            </div>
+            </Reveal>
           </div>
         </section>
       </main>
