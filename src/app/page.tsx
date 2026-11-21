@@ -10,7 +10,6 @@ import {
   Smartphone,
   Building2,
   CheckCircle2,
-  Sparkles,
   MessageCircle,
   Trophy,
   ShieldCheck,
@@ -45,11 +44,6 @@ export default async function HomePage() {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
             <div className="grid lg:grid-cols-12 gap-12 items-center">
               <div className="lg:col-span-7 space-y-6 text-center lg:text-left animate-hero-in">
-                <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/10 text-[#F2A900] text-xs font-semibold uppercase tracking-wider backdrop-blur-xs border border-white/10">
-                  <Sparkles className="w-4 h-4 fill-[#F2A900]" />
-                  Next-Gen Competition & Pageant Voting in Ghana
-                </div>
-
                 <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight leading-[1.15] text-white">
                   Cast Your Vote for Ghana&apos;s Next <span className="text-[#F2A900]">Champions</span>
                 </h1>
