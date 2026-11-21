@@ -11,6 +11,7 @@ import {
   type AdminEventFundRow,
   type AdminOrgFundRow,
   type AdminSettlementRow,
+  type AdminTicketOrderRow,
   type AdminUncreditedOrderRow,
 } from "./AdminConsoleClient";
 import { mapCmsRow, type PlatformMarqueeItemRow } from "@/lib/cms";
@@ -72,6 +73,7 @@ export default async function SuperAdminPage() {
     { data: brandingRows },
     { data: cmsRow },
     { data: marqueeRows },
+    { data: ticketOrderRows },
   ] = await Promise.all([
     admin.from("v_event_funds").select("*"),
     admin
@@ -104,6 +106,13 @@ export default async function SuperAdminPage() {
     admin.from("branding_settings").select("event_id, banner_public_id"),
     admin.from("platform_cms_settings").select("*").eq("id", 1).maybeSingle(),
     admin.from("platform_marquee_items").select("*").order("sort_order", { ascending: true }),
+    admin
+      .from("ticket_orders")
+      .select(
+        "id, reference, organization_id, event_id, buyer_name, buyer_phone_e164, buyer_email, quantity, base_amount_minor, surcharge_minor, total_amount_minor, currency, commission_bps, status, channel, paid_at, created_at, events(name), event_ticket_tiers(name)"
+      )
+      .order("created_at", { ascending: false })
+      .limit(250),
   ]);
 
   const bannerByEventId = new Map((brandingRows ?? []).map((b) => [b.event_id as string, (b.banner_public_id as string | null) ?? ""]));
@@ -323,6 +332,38 @@ export default async function SuperAdminPage() {
     active: Boolean(m.active),
   }));
 
+  type TicketEvJoin = { name: string } | { name: string }[] | null;
+  type TicketTierJoin = { name: string } | { name: string }[] | null;
+
+  const ticketOrders: AdminTicketOrderRow[] = (ticketOrderRows ?? []).map((o) => {
+    const evJ = o.events as TicketEvJoin;
+    const tierJ = o.event_ticket_tiers as TicketTierJoin;
+    const evName = (Array.isArray(evJ) ? evJ[0]?.name : evJ?.name) ?? "Event";
+    const tierName = (Array.isArray(tierJ) ? tierJ[0]?.name : tierJ?.name) ?? "Ticket";
+    const base = Number(o.base_amount_minor ?? 0);
+    const bps = Number(o.commission_bps ?? 1000);
+    const comm = Math.floor((base * bps + 5000) / 10000);
+    return {
+      id: String(o.id),
+      reference: String(o.reference),
+      orgName: orgNameById.get(String(o.organization_id)) ?? "Organization",
+      eventName: evName,
+      tierName,
+      buyerName: String(o.buyer_name),
+      buyerPhone: String(o.buyer_phone_e164),
+      buyerEmail: String(o.buyer_email ?? ""),
+      quantity: Number(o.quantity ?? 1),
+      baseAmountMinor: base,
+      commissionMinor: comm,
+      organizerNetMinor: base - comm,
+      totalAmountMinor: Number(o.total_amount_minor ?? 0),
+      currency: String(o.currency ?? "GHS"),
+      status: String(o.status),
+      paidAt: (o.paid_at as string | null) ?? null,
+      createdAt: String(o.created_at),
+    };
+  });
+
   return (
     <AdminConsoleClient
       adminEmail={user.email ?? "super_admin"}
@@ -333,6 +374,7 @@ export default async function SuperAdminPage() {
       categories={categories}
       contestants={contestants}
       settlements={settlements}
+      ticketOrders={ticketOrders}
       cmsSettings={cmsSettings}
       marqueeItems={marqueeItems}
       totals={totals}

@@ -18,6 +18,7 @@ import { OrgJudgingPanel } from "@/components/admin/OrgJudgingPanel";
 import {
   OrgTicketingPanel,
   type OrgTicketTierRow,
+  type OrgTicketOrderRow,
   type OrgIssuedTicketRow,
 } from "@/components/admin/OrgTicketingPanel";
 import {
@@ -115,6 +116,7 @@ interface OrgPortalProps {
   contestants: OrgContestantRow[];
   settlements: OrgSettlementRow[];
   ticketTiers?: OrgTicketTierRow[];
+  ticketOrders?: OrgTicketOrderRow[];
   issuedTickets?: OrgIssuedTicketRow[];
   totals: {
     totalVotes: number;
@@ -136,6 +138,7 @@ export function OrgPortalClient({
   contestants,
   settlements,
   ticketTiers = [],
+  ticketOrders = [],
   issuedTickets = [],
   totals,
 }: OrgPortalProps) {
@@ -957,6 +960,7 @@ export function OrgPortalClient({
               defaultCurrency={org.defaultCurrency}
               events={events.map((e) => ({ id: e.id, name: e.name, code: e.code }))}
               tiers={ticketTiers}
+              ticketOrders={ticketOrders}
               issuedTickets={issuedTickets}
               onNotice={setNotice}
             />

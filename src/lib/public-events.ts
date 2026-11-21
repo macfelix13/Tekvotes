@@ -128,18 +128,20 @@ export async function listPublicTicketedEvents(): Promise<PublicTicketedEvent[]>
     tiersByEvent.set(eid, list);
   }
 
-  return events.map((e) => ({
-    id: e.id as string,
-    slug: e.slug as string,
-    name: e.name as string,
-    eventType: e.event_type as string,
-    organizerName: orgName(e.organizations as OrgEmbed),
-    venue: (e.venue as string | null) ?? null,
-    opensAt: (e.voting_opens_at as string | null) ?? null,
-    closesAt: (e.voting_closes_at as string | null) ?? null,
-    bannerUrl: bannerByEvent.get(e.id as string) ?? null,
-    tiers: tiersByEvent.get(e.id as string) ?? [],
-  }));
+  return events
+    .map((e) => ({
+      id: e.id as string,
+      slug: e.slug as string,
+      name: e.name as string,
+      eventType: e.event_type as string,
+      organizerName: orgName(e.organizations as OrgEmbed),
+      venue: (e.venue as string | null) ?? null,
+      opensAt: (e.voting_opens_at as string | null) ?? null,
+      closesAt: (e.voting_closes_at as string | null) ?? null,
+      bannerUrl: bannerByEvent.get(e.id as string) ?? null,
+      tiers: tiersByEvent.get(e.id as string) ?? [],
+    }))
+    .filter((ev) => ev.tiers.length > 0 || ev.eventType === "ticketed_event");
 }
 
 export interface PublicEventDetail extends Omit<PublicEventSummary, "contestantsCount" | "minUnitPriceMinor"> {
@@ -277,6 +279,7 @@ export async function listPublicEvents(): Promise<PublicEventSummary[]> {
   const { data: events, error } = await db
     .from("events")
     .select("id, slug, name, event_type, voting_status, approval_status, voting_opens_at, voting_closes_at, organizations(name)")
+    .neq("event_type", "ticketed_event")
     .order("created_at", { ascending: false });
   if (error) throw new Error(`Failed to load events: ${error.message}`);
   if (!events?.length) return [];

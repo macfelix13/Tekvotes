@@ -10,7 +10,11 @@ import {
   type OrgEventRow,
   type OrgSettlementRow,
 } from "./OrgPortalClient";
-import type { OrgTicketTierRow, OrgIssuedTicketRow } from "@/components/admin/OrgTicketingPanel";
+import type {
+  OrgTicketTierRow,
+  OrgTicketOrderRow,
+  OrgIssuedTicketRow,
+} from "@/components/admin/OrgTicketingPanel";
 import { Building2 } from "lucide-react";
 
 export default async function OrganiserPortalPage({
@@ -92,7 +96,7 @@ export default async function OrganiserPortalPage({
       </div>
     );
   }
-  const [{ data: evRows }, { data: catRows }, { data: fundRows }, { data: ceRows }, { data: socialRows }, { data: settleReqRows }, { data: brandingRows }, { data: tierRows }, { data: issuedTicketRows }] =
+  const [{ data: evRows }, { data: catRows }, { data: fundRows }, { data: ceRows }, { data: socialRows }, { data: settleReqRows }, { data: brandingRows }, { data: tierRows }, { data: ticketOrderRows }, { data: issuedTicketRows }] =
     await Promise.all([
       admin
         .from("events")
@@ -124,6 +128,12 @@ export default async function OrganiserPortalPage({
         .eq("organization_id", activeOrg.id)
         .eq("active", true)
         .order("created_at", { ascending: false }),
+      admin
+        .from("ticket_orders")
+        .select("id, reference, event_id, tier_id, buyer_name, buyer_phone_e164, buyer_email, quantity, base_amount_minor, surcharge_minor, total_amount_minor, currency, status, channel, paid_at, created_at")
+        .eq("organization_id", activeOrg.id)
+        .order("created_at", { ascending: false })
+        .limit(200),
       admin
         .from("issued_tickets")
         .select("id, ticket_code, holder_name, holder_phone_e164, event_id, tier_id, status, checked_in_at, created_at")
@@ -269,6 +279,25 @@ export default async function OrganiserPortalPage({
   }));
   const tierNameById = new Map(ticketTiers.map((t) => [t.id, t.name]));
 
+  const ticketOrders: OrgTicketOrderRow[] = (ticketOrderRows ?? []).map((o) => ({
+    id: o.id as string,
+    reference: String(o.reference),
+    eventName: eventNameById.get(o.event_id as string) ?? "Event",
+    tierName: tierNameById.get(o.tier_id as string) ?? "Ticket",
+    buyerName: String(o.buyer_name),
+    buyerPhone: String(o.buyer_phone_e164),
+    buyerEmail: String(o.buyer_email ?? ""),
+    quantity: Number(o.quantity ?? 1),
+    baseAmountMinor: Number(o.base_amount_minor ?? 0),
+    surchargeMinor: Number(o.surcharge_minor ?? 0),
+    totalAmountMinor: Number(o.total_amount_minor ?? 0),
+    currency: String(o.currency ?? "GHS"),
+    status: String(o.status),
+    channel: String(o.channel ?? "paystack"),
+    paidAt: (o.paid_at as string | null) ?? null,
+    createdAt: String(o.created_at),
+  }));
+
   const issuedTickets: OrgIssuedTicketRow[] = (issuedTicketRows ?? []).map((p) => ({
     id: p.id as string,
     ticketCode: String(p.ticket_code),
@@ -291,6 +320,7 @@ export default async function OrganiserPortalPage({
       contestants={contestants}
       settlements={settlements}
       ticketTiers={ticketTiers}
+      ticketOrders={ticketOrders}
       issuedTickets={issuedTickets}
       totals={totals}
     />

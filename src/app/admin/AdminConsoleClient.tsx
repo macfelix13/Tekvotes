@@ -38,6 +38,7 @@ import {
   User,
   Download,
   Sliders,
+  Ticket,
 } from "lucide-react";
 
 export interface AdminEventFundRow {
@@ -142,6 +143,26 @@ export interface AdminContestantRow {
   votes: number;
 }
 
+export interface AdminTicketOrderRow {
+  id: string;
+  reference: string;
+  orgName: string;
+  eventName: string;
+  tierName: string;
+  buyerName: string;
+  buyerPhone: string;
+  buyerEmail: string;
+  quantity: number;
+  baseAmountMinor: number;
+  commissionMinor: number;
+  organizerNetMinor: number;
+  totalAmountMinor: number;
+  currency: string;
+  status: string;
+  paidAt: string | null;
+  createdAt: string;
+}
+
 interface AdminConsoleProps {
   adminEmail: string;
   eventFunds: AdminEventFundRow[];
@@ -151,6 +172,7 @@ interface AdminConsoleProps {
   categories: AdminCategoryRow[];
   contestants: AdminContestantRow[];
   settlements: AdminSettlementRow[];
+  ticketOrders?: AdminTicketOrderRow[];
   cmsSettings: PlatformCmsSettings;
   marqueeItems: PlatformMarqueeItemRow[];
   totals: {
@@ -173,12 +195,13 @@ export function AdminConsoleClient({
   categories,
   contestants,
   settlements,
+  ticketOrders = [],
   cmsSettings,
   marqueeItems,
   totals,
 }: AdminConsoleProps) {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<"treasury" | "contestants" | "approvals" | "refunds" | "cms">("treasury");
+  const [activeTab, setActiveTab] = useState<"treasury" | "tickets" | "contestants" | "approvals" | "refunds" | "cms">("treasury");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [notice, setNotice] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
 
@@ -534,6 +557,7 @@ export function AdminConsoleClient({
             {(
               [
                 { id: "treasury", label: "Event & Org Fund Ledgers (v_event_funds / v_org_funds)", Icon: Landmark },
+                { id: "tickets", label: `Ticket Sales Ledger (${ticketOrders.length})`, Icon: Ticket },
                 { id: "contestants", label: `Contestants & Profiles (${contestants.length})`, Icon: Users },
                 {
                   id: "approvals",
@@ -952,6 +976,112 @@ export function AdminConsoleClient({
                 </div>
               </div>
             </>
+          )}
+
+          {activeTab === "tickets" && (
+            <div className="bg-white rounded-2xl border border-[#D9DBEA] p-6 space-y-5 shadow-xs">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#D9DBEA] pb-4">
+                <div>
+                  <span className="text-xs font-bold uppercase text-[#4B35E0] flex items-center gap-1.5">
+                    <Ticket className="w-4 h-4" /> Separate Box Office Ledger (public.ticket_orders)
+                  </span>
+                  <h2 className="font-heading font-bold text-lg text-[#0E1030] mt-0.5">
+                    All Platform Ticket Purchases &amp; Revenue Split ({ticketOrders.length})
+                  </h2>
+                  <p className="text-xs text-[#5B5F85]">
+                    All ticket payments settle into the central Paystack treasury first, with platform commission deducted and organiser net share held in escrow until post-event release.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  disabled={ticketOrders.length === 0}
+                  onClick={() =>
+                    downloadCsv(
+                      `tekvotes-ticket-sales-${new Date().toISOString().slice(0, 10)}.csv`,
+                      ["Order Ref", "Org", "Event", "Tier", "Buyer", "Phone", "Email", "Qty", "Ticket Value", "Commission", "Org Net", "Status", "Date"],
+                      ticketOrders.map((o) => [
+                        o.reference,
+                        o.orgName,
+                        o.eventName,
+                        o.tierName,
+                        o.buyerName,
+                        o.buyerPhone,
+                        o.buyerEmail,
+                        o.quantity,
+                        (o.baseAmountMinor / 100).toFixed(2),
+                        (o.commissionMinor / 100).toFixed(2),
+                        (o.organizerNetMinor / 100).toFixed(2),
+                        o.status,
+                        o.paidAt ?? o.createdAt,
+                      ])
+                    )
+                  }
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-[#D9DBEA] bg-white text-xs font-bold text-[#0E1030] hover:border-[#4B35E0] disabled:opacity-50 cursor-pointer shrink-0"
+                >
+                  <Download className="w-3.5 h-3.5" /> Export Ticket Ledger CSV
+                </button>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="border-b border-[#D9DBEA] text-[#5B5F85] uppercase">
+                      <th className="py-3 px-3">Ticket Ref</th>
+                      <th className="py-3 px-3">Buyer</th>
+                      <th className="py-3 px-3">Event &amp; Tier</th>
+                      <th className="py-3 px-3">Org</th>
+                      <th className="py-3 px-3">Qty</th>
+                      <th className="py-3 px-3">Ticket Value</th>
+                      <th className="py-3 px-3">Commission</th>
+                      <th className="py-3 px-3">Org Net</th>
+                      <th className="py-3 px-3 text-right">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#D9DBEA]">
+                    {ticketOrders.map((o) => (
+                      <tr key={o.id} className="hover:bg-[#F6F7FC]">
+                        <td className="py-3 px-3 font-mono font-bold text-[#4B35E0]">{o.reference}</td>
+                        <td className="py-3 px-3">
+                          <div className="font-bold text-[#0E1030]">{o.buyerName}</div>
+                          <div className="text-[11px] text-[#5B5F85]">{o.buyerPhone}</div>
+                        </td>
+                        <td className="py-3 px-3">
+                          <div className="font-semibold text-[#0E1030]">{o.eventName}</div>
+                          <div className="text-[11px] text-[#5B5F85]">{o.tierName}</div>
+                        </td>
+                        <td className="py-3 px-3 text-[#5B5F85]">{o.orgName}</td>
+                        <td className="py-3 px-3 font-mono font-bold">{o.quantity}</td>
+                        <td className="py-3 px-3 font-mono">{fmtGhs(o.baseAmountMinor, o.currency)}</td>
+                        <td className="py-3 px-3 font-mono text-[#4B35E0] font-semibold">
+                          {fmtGhs(o.commissionMinor, o.currency)}
+                        </td>
+                        <td className="py-3 px-3 font-mono text-[#0F9D6B] font-bold">
+                          {fmtGhs(o.organizerNetMinor, o.currency)}
+                        </td>
+                        <td className="py-3 px-3 text-right">
+                          <span
+                            className={`px-2 py-0.5 rounded-full font-bold uppercase text-[10px] ${
+                              o.status === "paid"
+                                ? "bg-[#E6F8F0] text-[#0F9D6B]"
+                                : "bg-[#FDF3D6] text-[#C77700]"
+                            }`}
+                          >
+                            {o.status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                    {ticketOrders.length === 0 ? (
+                      <tr>
+                        <td colSpan={9} className="py-8 text-center text-[#5B5F85]">
+                          No ticket purchases recorded yet.
+                        </td>
+                      </tr>
+                    ) : null}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           )}
 
           {activeTab === "contestants" && (
