@@ -12,9 +12,14 @@ import {
 } from "./OrgPortalClient";
 import { Building2 } from "lucide-react";
 
-export default async function OrganiserPortalPage() {
+export default async function OrganiserPortalPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ orgId?: string }>;
+}) {
   await connection();
-  const { user, activeOrg } = await requireOrgPage();
+  const params = await searchParams;
+  const { user, activeOrg, availableOrgs } = await requireOrgPage(params.orgId);
 
   const admin = createAdminClient();
 
@@ -157,6 +162,8 @@ export default async function OrganiserPortalPage() {
       categoryEntryId: ce.id,
       contestantId,
       organizationId: activeOrg.id,
+      eventId: ce.event_id,
+      categoryId: ce.category_id,
       code: entry?.public_code ?? "—",
       name: con?.display_name ?? "Contestant",
       gender: con?.gender ?? "",
@@ -237,6 +244,7 @@ export default async function OrganiserPortalPage() {
     <OrgPortalClient
       userEmail={user.email ?? ""}
       org={activeOrg}
+      availableOrgs={availableOrgs}
       events={events}
       categories={categories}
       contestants={contestants}

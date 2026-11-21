@@ -84,41 +84,45 @@ export async function requireSuperAdminPage(): Promise<{
   return { user, access, authorized: access.isSuperAdmin };
 }
 
-export async function requireOrgPage(): Promise<{
+export async function requireOrgPage(requestedOrgId?: string): Promise<{
   user: User;
   access: UserAccess;
   activeOrg: OrgMembership | null;
+  availableOrgs: OrgMembership[];
 }> {
   const user = await getCurrentUser();
   if (!user) {
     redirect("/auth/login?redirectTo=/org");
   }
   const access = await getUserAccess(user.id);
-  let activeOrg = access.organizations[0] ?? null;
+  let availableOrgs = access.organizations;
 
-  if (!activeOrg && access.isSuperAdmin) {
+  if (access.isSuperAdmin) {
     const admin = createAdminClient();
-    const { data: firstOrg } = await admin
+    const { data: allApproved } = await admin
       .from("organizations")
       .select("id, slug, name, status, default_currency")
       .eq("status", "approved")
-      .order("created_at", { ascending: true })
-      .limit(1)
-      .maybeSingle();
+      .order("created_at", { ascending: true });
 
-    if (firstOrg) {
-      activeOrg = {
-        id: firstOrg.id,
-        slug: firstOrg.slug,
-        name: firstOrg.name,
-        status: firstOrg.status,
-        defaultCurrency: firstOrg.default_currency,
+    if (allApproved && allApproved.length > 0) {
+      availableOrgs = allApproved.map((o) => ({
+        id: o.id as string,
+        slug: o.slug as string,
+        name: o.name as string,
+        status: o.status as string,
+        defaultCurrency: o.default_currency as string,
         isOwner: true,
-      };
+      }));
     }
   }
 
-  return { user, access, activeOrg };
+  const activeOrg =
+    (requestedOrgId ? availableOrgs.find((o) => o.id === requestedOrgId) : null) ??
+    availableOrgs[0] ??
+    null;
+
+  return { user, access, activeOrg, availableOrgs };
 }
 
 export async function requireApiSuperAdmin(): Promise<

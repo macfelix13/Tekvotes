@@ -253,6 +253,7 @@ export default async function SuperAdminPage() {
       contestantId,
       organizationId: ce.organization_id,
       eventId: ce.event_id,
+      categoryId: ce.category_id,
       eventName: evMeta?.name ?? "Event",
       orgName: evMeta?.orgName ?? "Organization",
       categoryName: catNameById.get(ce.category_id) ?? "Category",

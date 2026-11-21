@@ -1,5 +1,3 @@
-"use client";
-
 import { useState } from "react";
 import { X, Upload, Loader2, Trash2, User } from "lucide-react";
 
@@ -19,6 +17,8 @@ export interface ModalCategoryOption {
 export interface EditableContestantProfile {
   contestantId: string;
   organizationId: string;
+  eventId: string;
+  categoryId: string;
   eventName: string;
   categoryName: string;
   code: string;
@@ -26,6 +26,7 @@ export interface EditableContestantProfile {
   gender: string;
   bio: string;
   photoUrl: string;
+  status: string;
   instagramUrl: string;
   tiktokUrl: string;
   facebookUrl: string;
@@ -34,6 +35,7 @@ export interface EditableContestantProfile {
 interface ContestantProfileModalProps {
   events: ModalEventOption[];
   categories: ModalCategoryOption[];
+  defaultEventId?: string;
   editing?: EditableContestantProfile | null;
   onClose: () => void;
   onSaved: (message: string) => void;
@@ -42,15 +44,19 @@ interface ContestantProfileModalProps {
 export function ContestantProfileModal({
   events,
   categories,
+  defaultEventId,
   editing,
   onClose,
   onSaved,
 }: ContestantProfileModalProps) {
   const isEdit = Boolean(editing);
 
-  const initialEventId = events[0]?.id ?? "";
+  const initialEventId = editing?.eventId || defaultEventId || events[0]?.id || "";
   const initialCatId =
-    categories.find((c) => c.eventId === initialEventId)?.id ?? categories[0]?.id ?? "";
+    editing?.categoryId ||
+    categories.find((c) => c.eventId === initialEventId)?.id ||
+    categories[0]?.id ||
+    "";
 
   const [eventId, setEventId] = useState(initialEventId);
   const [categoryId, setCategoryId] = useState(initialCatId);
@@ -59,6 +65,9 @@ export function ContestantProfileModal({
   const [gender, setGender] = useState(editing?.gender ?? "");
   const [bio, setBio] = useState(editing?.bio ?? "");
   const [photoUrl, setPhotoUrl] = useState(editing?.photoUrl ?? "");
+  const [status, setStatus] = useState<"active" | "suspended">(
+    editing?.status === "withdrawn" || editing?.status === "suspended" ? "suspended" : "active"
+  );
   const [instagramUrl, setInstagramUrl] = useState(editing?.instagramUrl ?? "");
   const [tiktokUrl, setTiktokUrl] = useState(editing?.tiktokUrl ?? "");
   const [facebookUrl, setFacebookUrl] = useState(editing?.facebookUrl ?? "");
@@ -69,7 +78,7 @@ export function ContestantProfileModal({
 
   const selectedEvent = events.find((e) => e.id === eventId);
   const organizationId = editing?.organizationId ?? selectedEvent?.organizationId ?? "";
-  const eventCategories = categories.filter((c) => c.eventId === eventId);
+  const eventCategories = categories.filter((c) => c.eventId === (isEdit ? editing?.eventId || eventId : eventId));
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -118,11 +127,13 @@ export function ContestantProfileModal({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             organizationId,
+            categoryId: categoryId || undefined,
             displayName: displayName.trim(),
             publicCode: publicCode.trim(),
             gender: gender.trim(),
             bio: bio.trim(),
             photoUrl: photoUrl.trim(),
+            status,
             instagramUrl: instagramUrl.trim(),
             tiktokUrl: tiktokUrl.trim(),
             facebookUrl: facebookUrl.trim(),
@@ -173,7 +184,7 @@ export function ContestantProfileModal({
         <div className="flex items-center justify-between border-b border-[#D9DBEA] pb-3">
           <div>
             <span className="text-[11px] font-bold uppercase tracking-wider text-[#4B35E0]">
-              {isEdit ? `Edit Profile · ${editing?.code}` : "New Contestant Profile"}
+              {isEdit ? `Edit Nominee / Contestant · ${editing?.code}` : "New Contestant Profile"}
             </span>
             <h3 className="font-heading font-extrabold text-xl text-[#0E1030]">
               {isEdit ? editing?.displayName : "Add Contestant Profile"}
@@ -238,14 +249,32 @@ export function ContestantProfileModal({
           </div>
 
           {isEdit && editing ? (
-            <div className="grid grid-cols-2 gap-3 p-3 rounded-xl bg-[#F6F7FC] border border-[#D9DBEA] text-[#5B5F85]">
+            <div className="grid sm:grid-cols-2 gap-3">
               <div>
-                <span className="block uppercase text-[10px] font-bold">Event</span>
-                <strong className="text-[#0E1030]">{editing.eventName}</strong>
+                <label className="block font-bold text-[#5B5F85] uppercase mb-1">Event</label>
+                <div className="w-full px-3.5 py-2.5 rounded-xl bg-[#F6F7FC] border border-[#D9DBEA] text-sm font-bold text-[#0E1030]">
+                  {editing.eventName}
+                </div>
               </div>
               <div>
-                <span className="block uppercase text-[10px] font-bold">Category</span>
-                <strong className="text-[#0E1030]">{editing.categoryName}</strong>
+                <label className="block font-bold text-[#5B5F85] uppercase mb-1">Category *</label>
+                {eventCategories.length > 0 ? (
+                  <select
+                    value={categoryId}
+                    onChange={(e) => setCategoryId(e.target.value)}
+                    className="w-full px-3 py-2.5 rounded-xl bg-[#F6F7FC] border border-[#D9DBEA] text-sm text-[#0E1030]"
+                  >
+                    {eventCategories.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <div className="w-full px-3.5 py-2.5 rounded-xl bg-[#F6F7FC] border border-[#D9DBEA] text-sm font-bold text-[#0E1030]">
+                    {editing.categoryName}
+                  </div>
+                )}
               </div>
             </div>
           ) : (
@@ -306,21 +335,37 @@ export function ContestantProfileModal({
                 required
                 value={publicCode}
                 onChange={(e) => setPublicCode(e.target.value.toUpperCase())}
-                placeholder="e.g. DPG26-07"
+                placeholder="e.g. FOS-EM26"
                 className="w-full px-3.5 py-2.5 rounded-xl bg-[#F6F7FC] border border-[#D9DBEA] text-sm font-mono text-[#0E1030]"
               />
             </div>
           </div>
 
-          <div>
-            <label className="block font-bold text-[#5B5F85] uppercase mb-1">Gender (Optional)</label>
-            <input
-              type="text"
-              value={gender}
-              onChange={(e) => setGender(e.target.value)}
-              placeholder="e.g. Female"
-              className="w-full px-3.5 py-2.5 rounded-xl bg-[#F6F7FC] border border-[#D9DBEA] text-sm text-[#0E1030]"
-            />
+          <div className="grid sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block font-bold text-[#5B5F85] uppercase mb-1">Gender (Optional)</label>
+              <input
+                type="text"
+                value={gender}
+                onChange={(e) => setGender(e.target.value)}
+                placeholder="e.g. Female"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-[#F6F7FC] border border-[#D9DBEA] text-sm text-[#0E1030]"
+              />
+            </div>
+
+            {isEdit ? (
+              <div>
+                <label className="block font-bold text-[#5B5F85] uppercase mb-1">Participation Status</label>
+                <select
+                  value={status}
+                  onChange={(e) => setStatus(e.target.value as "active" | "suspended")}
+                  className="w-full px-3 py-2.5 rounded-xl bg-[#F6F7FC] border border-[#D9DBEA] text-sm font-semibold text-[#0E1030]"
+                >
+                  <option value="active">Active (Visible &amp; Votable)</option>
+                  <option value="suspended">Withdrawn / Suspended</option>
+                </select>
+              </div>
+            ) : null}
           </div>
 
           <div>

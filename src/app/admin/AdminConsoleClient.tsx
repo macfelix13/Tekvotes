@@ -121,6 +121,7 @@ export interface AdminContestantRow {
   contestantId: string;
   organizationId: string;
   eventId: string;
+  categoryId: string;
   eventName: string;
   orgName: string;
   categoryName: string;
@@ -394,6 +395,8 @@ export function AdminConsoleClient({
     setEditingProfile({
       contestantId: c.contestantId,
       organizationId: c.organizationId,
+      eventId: c.eventId,
+      categoryId: c.categoryId,
       eventName: c.eventName,
       categoryName: c.categoryName,
       code: c.code,
@@ -401,6 +404,7 @@ export function AdminConsoleClient({
       gender: c.gender,
       bio: c.bio,
       photoUrl: c.photoUrl,
+      status: c.status,
       instagramUrl: c.instagramUrl,
       tiktokUrl: c.tiktokUrl,
       facebookUrl: c.facebookUrl,

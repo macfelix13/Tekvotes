@@ -71,6 +71,8 @@ export interface OrgContestantRow {
   categoryEntryId: string;
   contestantId: string;
   organizationId: string;
+  eventId: string;
+  categoryId: string;
   code: string;
   name: string;
   gender: string;
@@ -99,6 +101,7 @@ export interface OrgSettlementRow {
 interface OrgPortalProps {
   userEmail: string;
   org: OrgMembership;
+  availableOrgs?: OrgMembership[];
   events: OrgEventRow[];
   categories: OrgCategoryRow[];
   contestants: OrgContestantRow[];
@@ -117,6 +120,7 @@ const fmtGhs = (minor: number, currency = "GHS") =>
 export function OrgPortalClient({
   userEmail,
   org,
+  availableOrgs = [],
   events,
   categories,
   contestants,
@@ -140,6 +144,8 @@ export function OrgPortalClient({
 
   // Contestant profile modal state (create or edit)
   const [profileModalOpen, setProfileModalOpen] = useState(false);
+  const [defaultModalEventId, setDefaultModalEventId] = useState<string>("");
+  const [contestantEventFilter, setContestantEventFilter] = useState<string>("all");
   const [editingProfile, setEditingProfile] = useState<EditableContestantProfile | null>(null);
   const [editingEvent, setEditingEvent] = useState<EditableEventProfile | null>(null);
 
@@ -306,8 +312,9 @@ export function OrgPortalClient({
     }
   };
 
-  const openCreateProfile = () => {
+  const openCreateProfile = (forEventId?: string) => {
     setEditingProfile(null);
+    setDefaultModalEventId(forEventId || (contestantEventFilter !== "all" ? contestantEventFilter : events[0]?.id ?? ""));
     setProfileModalOpen(true);
   };
 
@@ -315,6 +322,8 @@ export function OrgPortalClient({
     setEditingProfile({
       contestantId: c.contestantId,
       organizationId: c.organizationId,
+      eventId: c.eventId,
+      categoryId: c.categoryId,
       eventName: c.eventName,
       categoryName: c.categoryName,
       code: c.code,
@@ -322,6 +331,7 @@ export function OrgPortalClient({
       gender: c.gender,
       bio: c.bio,
       photoUrl: c.photoUrl,
+      status: c.status,
       instagramUrl: c.instagramUrl,
       tiktokUrl: c.tiktokUrl,
       facebookUrl: c.facebookUrl,
@@ -403,6 +413,20 @@ export function OrgPortalClient({
             </div>
 
             <div className="flex flex-wrap items-center gap-3">
+              {availableOrgs.length > 1 ? (
+                <select
+                  value={org.id}
+                  onChange={(e) => router.push(`/org?orgId=${e.target.value}`)}
+                  aria-label="Switch organization workspace"
+                  className="px-3.5 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-bold border border-white/15 cursor-pointer"
+                >
+                  {availableOrgs.map((o) => (
+                    <option key={o.id} value={o.id} className="text-[#0E1030]">
+                      Workspace: {o.name}
+                    </option>
+                  ))}
+                </select>
+              ) : null}
               {events[0] ? (
                 <Link
                   href={`/competitions/${events[0].slug}`}
@@ -576,6 +600,23 @@ export function OrgPortalClient({
                             >
                               <Pencil className="w-3 h-3" /> Edit Event
                             </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setContestantEventFilter(ev.id);
+                                setActiveTab("contestants");
+                              }}
+                              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl border border-[#D9DBEA] bg-white text-xs font-bold text-[#0E1030] hover:border-[#4B35E0] hover:text-[#4B35E0] cursor-pointer"
+                            >
+                              <Users className="w-3 h-3" /> Manage Nominees
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => openCreateProfile(ev.id)}
+                              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-[#E8E5FD] text-[#4B35E0] text-xs font-bold hover:bg-[#DBD5FC] cursor-pointer"
+                            >
+                              <Plus className="w-3 h-3" /> Add Nominee
+                            </button>
                             {(ev.approvalStatus === "not_submitted" || ev.approvalStatus === "rejected") && (
                               <button
                                 type="button"
@@ -735,10 +776,23 @@ export function OrgPortalClient({
                     Contestant Profiles &amp; Short Codes
                   </h2>
                   <p className="text-xs text-[#5B5F85]">
-                    Upload portrait photos, manage bios &amp; social links, and assign short codes.
+                    Edit nominee names, short codes, categories, portraits, bios &amp; social links anytime (before or after approval).
                   </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
+                  <select
+                    value={contestantEventFilter}
+                    onChange={(e) => setContestantEventFilter(e.target.value)}
+                    aria-label="Filter nominees by event"
+                    className="px-3 py-2 rounded-xl bg-[#F6F7FC] border border-[#D9DBEA] text-xs font-semibold text-[#0E1030]"
+                  >
+                    <option value="all">All events ({events.length})</option>
+                    {events.map((ev) => (
+                      <option key={ev.id} value={ev.id}>
+                        {ev.name} ({ev.code})
+                      </option>
+                    ))}
+                  </select>
                   <button
                     type="button"
                     disabled={contestants.length === 0}
@@ -756,7 +810,7 @@ export function OrgPortalClient({
                   <button
                     type="button"
                     disabled={events.length === 0}
-                    onClick={openCreateProfile}
+                    onClick={() => openCreateProfile()}
                     className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#4B35E0] text-white text-xs font-bold hover:bg-[#3B28B8] disabled:opacity-50 cursor-pointer"
                   >
                     <Plus className="w-3.5 h-3.5" /> Add Contestant Profile
@@ -777,7 +831,9 @@ export function OrgPortalClient({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#D9DBEA]">
-                    {contestants.map((c) => (
+                    {contestants
+                      .filter((c) => contestantEventFilter === "all" || c.eventId === contestantEventFilter)
+                      .map((c) => (
                       <tr key={c.categoryEntryId} className="hover:bg-[#F6F7FC]">
                         <td className="py-3 px-4">
                           <div className="flex items-center gap-3">
@@ -1219,6 +1275,7 @@ export function OrgPortalClient({
             eventId: c.eventId,
             name: c.name,
           }))}
+          defaultEventId={defaultModalEventId}
           editing={editingProfile}
           onClose={() => {
             setProfileModalOpen(false);

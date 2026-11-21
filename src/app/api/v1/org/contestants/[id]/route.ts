@@ -13,6 +13,7 @@ const optionalUrl = z
 
 const PatchContestantSchema = z.object({
   organizationId: z.string().uuid("Invalid organization ID"),
+  categoryId: z.string().uuid("Invalid category ID").optional(),
   displayName: z.string().trim().min(2, "Contestant name is too short").max(120).optional(),
   publicCode: z
     .string()
@@ -56,6 +57,7 @@ export async function PATCH(
 
   const {
     organizationId,
+    categoryId,
     displayName,
     publicCode,
     bio,
@@ -127,19 +129,53 @@ export async function PATCH(
     }
   }
 
-  if (status !== undefined) {
-    await Promise.all([
-      admin
+  if (status !== undefined || categoryId !== undefined) {
+    const { data: entryRows } = await admin
+      .from("contestant_entries")
+      .select("id, event_id")
+      .eq("contestant_id", id)
+      .eq("organization_id", organizationId);
+
+    const entryIds = (entryRows ?? []).map((r) => r.id as string);
+
+    if (status !== undefined) {
+      await admin
         .from("contestant_entries")
         .update({ status: status === "active" ? "approved" : "withdrawn" })
         .eq("contestant_id", id)
-        .eq("organization_id", organizationId),
-      admin
-        .from("category_entries")
-        .update({ status: status === "active" ? "active" : "withdrawn" })
-        .eq("contestant_id", id)
-        .eq("organization_id", organizationId),
-    ]);
+        .eq("organization_id", organizationId);
+
+      if (entryIds.length > 0) {
+        await admin
+          .from("category_entries")
+          .update({ status: status === "active" ? "active" : "withdrawn" })
+          .in("entry_id", entryIds)
+          .eq("organization_id", organizationId);
+      }
+    }
+
+    if (categoryId !== undefined && entryIds.length > 0) {
+      const { data: targetCat } = await admin
+        .from("event_categories")
+        .select("id, event_id")
+        .eq("id", categoryId)
+        .eq("organization_id", organizationId)
+        .maybeSingle();
+
+      if (targetCat) {
+        const matchingEntryIds = (entryRows ?? [])
+          .filter((r) => r.event_id === targetCat.event_id)
+          .map((r) => r.id as string);
+
+        if (matchingEntryIds.length > 0) {
+          await admin
+            .from("category_entries")
+            .update({ category_id: targetCat.id })
+            .in("entry_id", matchingEntryIds)
+            .eq("organization_id", organizationId);
+        }
+      }
+    }
   }
 
   const nextPhoto = photoUrl?.trim() || null;
