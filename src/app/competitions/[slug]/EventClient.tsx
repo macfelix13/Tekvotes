@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Navbar } from "@/components/navigation/Navbar";
+import { Reveal } from "@/components/ui/Reveal";
 import { VotingDrawer, type Contestant } from "@/components/voting/VotingDrawer";
 import type { PublicEventDetail, PublicCategoryEntry } from "@/lib/public-events";
 import { Building2, Calendar, Trophy, Search, Flame, BarChart3, Users, Lock } from "lucide-react";
@@ -87,7 +88,7 @@ export function EventClient({ event }: { event: PublicEventDetail }) {
           ) : null}
 
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16 relative z-10">
-            <div className="max-w-3xl space-y-4">
+            <div className="max-w-3xl space-y-4 animate-hero-in">
               <div className="flex flex-wrap items-center gap-2">
                 {event.votingOpen ? (
                   <span className="px-3 py-1 rounded-full bg-[#E6F8F0] text-[#0F9D6B] text-xs font-bold flex items-center gap-1.5">
@@ -189,11 +190,9 @@ export function EventClient({ event }: { event: PublicEventDetail }) {
               </div>
             ) : (
               <div className="grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                {filtered.map((c) => (
-                  <div
-                    key={c.id}
-                    className="bg-white rounded-2xl overflow-hidden border border-[#D9DBEA] shadow-xs hover:shadow-xl transition-all duration-300 flex flex-col group"
-                  >
+                {filtered.map((c, idx) => (
+                  <Reveal key={c.id} delayMs={Math.min(idx, 7) * 50}>
+                    <div className="bg-white rounded-2xl overflow-hidden border border-[#D9DBEA] shadow-xs hover:shadow-xl transition-all duration-300 flex flex-col group h-full">
                     <div className="relative aspect-[3/4] w-full bg-[#0E1030] overflow-hidden">
                       <Portrait
                         name={c.name}
@@ -238,7 +237,8 @@ export function EventClient({ event }: { event: PublicEventDetail }) {
                         </div>
                       )}
                     </div>
-                  </div>
+                    </div>
+                  </Reveal>
                 ))}
               </div>
             )}
@@ -248,7 +248,8 @@ export function EventClient({ event }: { event: PublicEventDetail }) {
         {activeTab === "leaderboard" && (
           <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 mt-8 space-y-6">
             {leaderboard.map(({ cat, rows, total }) => (
-              <section key={cat.id} className="bg-white rounded-3xl p-6 sm:p-8 border border-[#D9DBEA] shadow-lg space-y-6">
+              <Reveal key={cat.id}>
+                <section className="bg-white rounded-3xl p-6 sm:p-8 border border-[#D9DBEA] shadow-lg space-y-6">
                 <div className="flex items-center justify-between pb-4 border-b border-[#D9DBEA]">
                   <div>
                     <div className="flex items-center gap-2">
@@ -326,7 +327,8 @@ export function EventClient({ event }: { event: PublicEventDetail }) {
                     })}
                   </div>
                 )}
-              </section>
+                </section>
+              </Reveal>
             ))}
           </div>
         )}

@@ -350,15 +350,13 @@ export default async function HomePage() {
                     <ArrowRight className="w-4 h-4" />
                   </Link>
 
-                  <a
-                    href="https://wa.me/233240000000?text=Hello%20TekVotes%2C%20I%20would%20like%20to%20host%20an%20event."
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-xl bg-[#25D366] text-white font-semibold text-base hover:bg-[#20BE5B] shadow-md shadow-[#25D366]/20 transition-all"
+                  <Link
+                    href="/contact"
+                    className="inline-flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-xl bg-[#0E1030] text-white font-semibold text-base hover:bg-[#1A1D47] shadow-md transition-all"
                   >
-                    <MessageCircle className="w-5 h-5 fill-white" />
-                    <span>WhatsApp Us</span>
-                  </a>
+                    <MessageCircle className="w-5 h-5 text-[#F2A900]" />
+                    <span>Contact Support</span>
+                  </Link>
                 </div>
               </div>
 
@@ -429,13 +427,9 @@ export default async function HomePage() {
             <div>
               <h4 className="text-xs font-bold uppercase tracking-wider text-white/60 mb-3">Support</h4>
               <ul className="space-y-2 text-xs text-white/80">
-                <li>
-                  <a href="https://wa.me/233240000000" target="_blank" rel="noopener noreferrer" className="text-[#25D366] hover:underline flex items-center gap-1">
-                    <MessageCircle className="w-3.5 h-3.5" /> WhatsApp Helpdesk
-                  </a>
-                </li>
-                <li><Link href="/contact" className="hover:text-white">Contact Us</Link></li>
-                <li><Link href="/terms" className="hover:text-white">Terms & Privacy</Link></li>
+                <li><Link href="/contact" className="hover:text-white">Support Desk</Link></li>
+                <li><Link href="/pricing" className="hover:text-white">Commission Rules</Link></li>
+                <li><Link href="/terms" className="hover:text-white">Terms &amp; Privacy</Link></li>
               </ul>
             </div>
           </div>
