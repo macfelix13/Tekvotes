@@ -34,7 +34,12 @@ export async function POST(
 
   if (submitErr) {
     const msg = submitErr.message;
-    const status = msg.includes("NO_CATEGORIES") || msg.includes("NO_CONTESTANTS") ? 422 : 400;
+    const status =
+      msg.includes("NO_CATEGORIES") ||
+      msg.includes("NO_CONTESTANTS") ||
+      msg.includes("NO_CONTESTANTS_OR_TICKETS")
+        ? 422
+        : 400;
     return NextResponse.json({ error: "SUBMIT_FAILED", message: msg }, { status });
   }
 

@@ -148,9 +148,13 @@ export function OrgPortalClient({
   const [showNewEventModal, setShowNewEventModal] = useState(false);
   const [newEventName, setNewEventName] = useState("");
   const [newEventCode, setNewEventCode] = useState("");
-  const [newEventType, setNewEventType] = useState<"beauty_pageant" | "award_show" | "talent_show" | "campus_contest" | "other">("beauty_pageant");
+  const [newEventType, setNewEventType] = useState<
+    "beauty_pageant" | "award_show" | "talent_show" | "campus_contest" | "ticketed_event" | "other"
+  >("beauty_pageant");
   const [newCategoryName, setNewCategoryName] = useState("Main Category");
   const [newEventPrice, setNewEventPrice] = useState("1.00");
+  const [newTicketTierName, setNewTicketTierName] = useState("Regular Ticket");
+  const [newTicketPriceGhs, setNewTicketPriceGhs] = useState("50.00");
   const [newDurationMode, setNewDurationMode] = useState<"tba" | "scheduled">("tba");
   const [newOpensLocal, setNewOpensLocal] = useState("");
   const [newClosesLocal, setNewClosesLocal] = useState("");
@@ -251,6 +255,8 @@ export function OrgPortalClient({
           eventType: newEventType,
           categoryName: newCategoryName.trim() || "Main Category",
           unitPriceGhs: Number(newEventPrice) || 1,
+          ticketTierName: newEventType === "ticketed_event" ? newTicketTierName.trim() || "Regular Ticket" : undefined,
+          ticketPriceGhs: newEventType === "ticketed_event" ? Number(newTicketPriceGhs) || 50 : undefined,
           votingOpensAt: opensIso,
           votingClosesAt: closesIso,
           bannerUrl: newBannerUrl.trim(),
@@ -643,21 +649,32 @@ export function OrgPortalClient({
                             </button>
                             <button
                               type="button"
-                              onClick={() => {
-                                setContestantEventFilter(ev.id);
-                                setActiveTab("contestants");
-                              }}
+                              onClick={() => setActiveTab("ticketing")}
                               className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl border border-[#D9DBEA] bg-white text-xs font-bold text-[#0E1030] hover:border-[#4B35E0] hover:text-[#4B35E0] cursor-pointer"
                             >
-                              <Users className="w-3 h-3" /> Manage Nominees
+                              <Ticket className="w-3 h-3" /> Manage Tickets
                             </button>
-                            <button
-                              type="button"
-                              onClick={() => openCreateProfile(ev.id)}
-                              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-[#E8E5FD] text-[#4B35E0] text-xs font-bold hover:bg-[#DBD5FC] cursor-pointer"
-                            >
-                              <Plus className="w-3 h-3" /> Add Nominee
-                            </button>
+                            {ev.eventType !== "ticketed_event" ? (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setContestantEventFilter(ev.id);
+                                    setActiveTab("contestants");
+                                  }}
+                                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl border border-[#D9DBEA] bg-white text-xs font-bold text-[#0E1030] hover:border-[#4B35E0] hover:text-[#4B35E0] cursor-pointer"
+                                >
+                                  <Users className="w-3 h-3" /> Manage Nominees
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => openCreateProfile(ev.id)}
+                                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-[#E8E5FD] text-[#4B35E0] text-xs font-bold hover:bg-[#DBD5FC] cursor-pointer"
+                                >
+                                  <Plus className="w-3 h-3" /> Add Nominee
+                                </button>
+                              </>
+                            ) : null}
                             {(ev.approvalStatus === "not_submitted" || ev.approvalStatus === "rejected") && (
                               <button
                                 type="button"
@@ -1175,44 +1192,73 @@ export function OrgPortalClient({
                   />
                 </div>
                 <div>
-                  <label className="block font-bold text-[#5B5F85] uppercase mb-1">Price / Vote (GHS) *</label>
-                  <input
-                    type="number"
-                    step="0.5"
-                    min="0.5"
-                    required
-                    value={newEventPrice}
-                    onChange={(e) => setNewEventPrice(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-[#F6F7FC] border border-[#D9DBEA] text-sm text-[#0E1030]"
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-bold text-[#5B5F85] uppercase mb-1">Type</label>
+                  <label className="block font-bold text-[#5B5F85] uppercase mb-1">Event Format / Type</label>
                   <select
                     value={newEventType}
                     onChange={(e) => setNewEventType(e.target.value as typeof newEventType)}
                     className="w-full px-3.5 py-2.5 rounded-xl bg-[#F6F7FC] border border-[#D9DBEA] text-sm text-[#0E1030]"
                   >
-                    <option value="beauty_pageant">Beauty Pageant</option>
-                    <option value="award_show">Award Show</option>
-                    <option value="talent_show">Talent Show</option>
-                    <option value="campus_contest">Campus Contest</option>
+                    <option value="ticketed_event">Ticket-Only Event (Movie Premiere / Show / Concert)</option>
+                    <option value="beauty_pageant">Beauty Pageant (Voting &amp; Tickets)</option>
+                    <option value="award_show">Award Show (Voting &amp; Tickets)</option>
+                    <option value="talent_show">Talent Show (Voting &amp; Tickets)</option>
+                    <option value="campus_contest">Campus Contest (Voting &amp; Tickets)</option>
                     <option value="other">Other</option>
                   </select>
                 </div>
-                <div>
-                  <label className="block font-bold text-[#5B5F85] uppercase mb-1">First Category *</label>
-                  <input
-                    type="text"
-                    required
-                    value={newCategoryName}
-                    onChange={(e) => setNewCategoryName(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-[#F6F7FC] border border-[#D9DBEA] text-sm text-[#0E1030]"
-                  />
-                </div>
               </div>
+              {newEventType === "ticketed_event" ? (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-bold text-[#5B5F85] uppercase mb-1">First Ticket Tier *</label>
+                    <input
+                      type="text"
+                      required
+                      value={newTicketTierName}
+                      onChange={(e) => setNewTicketTierName(e.target.value)}
+                      placeholder="e.g. Regular / VIP"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-[#F6F7FC] border border-[#D9DBEA] text-sm text-[#0E1030]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-[#5B5F85] uppercase mb-1">Ticket Price (GHS) *</label>
+                    <input
+                      type="number"
+                      step="1"
+                      min="1"
+                      required
+                      value={newTicketPriceGhs}
+                      onChange={(e) => setNewTicketPriceGhs(e.target.value)}
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-[#F6F7FC] border border-[#D9DBEA] text-sm font-mono text-[#0E1030]"
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-bold text-[#5B5F85] uppercase mb-1">First Voting Category *</label>
+                    <input
+                      type="text"
+                      required
+                      value={newCategoryName}
+                      onChange={(e) => setNewCategoryName(e.target.value)}
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-[#F6F7FC] border border-[#D9DBEA] text-sm text-[#0E1030]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-[#5B5F85] uppercase mb-1">Price / Vote (GHS) *</label>
+                    <input
+                      type="number"
+                      step="0.5"
+                      min="0.5"
+                      required
+                      value={newEventPrice}
+                      onChange={(e) => setNewEventPrice(e.target.value)}
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-[#F6F7FC] border border-[#D9DBEA] text-sm text-[#0E1030]"
+                    />
+                  </div>
+                </div>
+              )}
 
               <div className="p-3 rounded-xl bg-[#F6F7FC] border border-[#D9DBEA] space-y-2.5">
                 <div className="flex items-center justify-between">

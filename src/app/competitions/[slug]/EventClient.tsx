@@ -87,10 +87,16 @@ export function EventClient({ event, initialCode }: { event: PublicEventDetail; 
     ? event.entries.find((e) => e.code.toLowerCase() === cleanedInitial.toLowerCase()) ?? null
     : null;
 
+  const isTicketOnlyEvent =
+    event.eventType === "ticketed_event" ||
+    (event.entries.length === 0 && (event.ticketTiers?.length ?? 0) > 0);
+
   const [selected, setSelected] = useState<PublicCategoryEntry | null>(
     event.votingOpen && initialMatch ? initialMatch : null
   );
-  const [activeTab, setActiveTab] = useState<"contestants" | "leaderboard" | "about" | "gallery">("contestants");
+  const [activeTab, setActiveTab] = useState<"contestants" | "leaderboard" | "about" | "gallery">(
+    isTicketOnlyEvent ? "about" : "contestants"
+  );
   const [searchTerm, setSearchTerm] = useState(cleanedInitial);
   const [activeCategoryId, setActiveCategoryId] = useState<string>("all");
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
@@ -230,12 +236,17 @@ export function EventClient({ event, initialCode }: { event: PublicEventDetail; 
           <div className="bg-white rounded-2xl p-4 border border-[#D9DBEA] shadow-lg flex flex-col lg:flex-row items-center justify-between gap-4">
             <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
               {(
-                [
-                  { id: "contestants", label: `Contestants (${event.entries.length})`, Icon: Users },
-                  { id: "leaderboard", label: "Leaderboard", Icon: BarChart3 },
-                  { id: "about", label: "About", Icon: Info },
-                  { id: "gallery", label: `Gallery (${event.galleryPhotos.length})`, Icon: Images },
-                ] as const
+                isTicketOnlyEvent
+                  ? ([
+                      { id: "about", label: "Event Details & Tickets", Icon: Info },
+                      { id: "gallery", label: `Gallery (${event.galleryPhotos.length})`, Icon: Images },
+                    ] as const)
+                  : ([
+                      { id: "contestants", label: `Contestants (${event.entries.length})`, Icon: Users },
+                      { id: "leaderboard", label: "Leaderboard", Icon: BarChart3 },
+                      { id: "about", label: "About", Icon: Info },
+                      { id: "gallery", label: `Gallery (${event.galleryPhotos.length})`, Icon: Images },
+                    ] as const)
               ).map(({ id, label, Icon }) => (
                 <button
                   key={id}
@@ -509,8 +520,44 @@ export function EventClient({ event, initialCode }: { event: PublicEventDetail; 
                     </p>
                     {event.rulesText ? (
                       <div className="p-4 rounded-2xl bg-[#F6F7FC] border border-[#D9DBEA] space-y-1.5">
-                        <h3 className="font-heading font-bold text-sm text-[#0E1030]">Voting Rules &amp; Guidelines</h3>
+                        <h3 className="font-heading font-bold text-sm text-[#0E1030]">Event Rules &amp; Guidelines</h3>
                         <p className="text-xs text-[#5B5F85] whitespace-pre-line">{event.rulesText}</p>
+                      </div>
+                    ) : null}
+                    {event.ticketTiers && event.ticketTiers.length > 0 ? (
+                      <div className="p-5 rounded-2xl bg-[#F6F7FC] border border-[#D9DBEA] space-y-3">
+                        <div className="flex items-center justify-between">
+                          <h3 className="font-heading font-bold text-base text-[#0E1030]">
+                            Available Ticket Tiers
+                          </h3>
+                          <button
+                            type="button"
+                            onClick={() => setTicketDrawerOpen(true)}
+                            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#4B35E0] text-white font-bold text-xs hover:bg-[#3B28B8] cursor-pointer"
+                          >
+                            <Ticket className="w-3.5 h-3.5" />
+                            <span>Buy Tickets Now</span>
+                          </button>
+                        </div>
+                        <div className="grid sm:grid-cols-2 gap-3">
+                          {event.ticketTiers.map((t) => (
+                            <div
+                              key={t.id}
+                              onClick={() => setTicketDrawerOpen(true)}
+                              className="p-3.5 rounded-xl bg-white border border-[#D9DBEA] hover:border-[#4B35E0] flex items-center justify-between cursor-pointer"
+                            >
+                              <div>
+                                <div className="font-bold text-xs text-[#0E1030]">{t.name}</div>
+                                {t.description ? (
+                                  <div className="text-[11px] text-[#5B5F85]">{t.description}</div>
+                                ) : null}
+                              </div>
+                              <span className="font-mono font-extrabold text-sm text-[#4B35E0]">
+                                {t.currency} {(t.priceMinor / 100).toFixed(2)}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     ) : null}
                   </div>

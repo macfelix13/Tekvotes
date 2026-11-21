@@ -12,9 +12,13 @@ const CreateEventSchema = z.object({
     .min(2)
     .max(16)
     .regex(/^[A-Za-z0-9_-]+$/, "Event code can only contain letters, numbers, hyphens, or underscores"),
-  eventType: z.enum(["beauty_pageant", "award_show", "talent_show", "campus_contest", "other"]).default("beauty_pageant"),
-  categoryName: z.string().trim().min(2).max(100).default("Main Category"),
-  unitPriceGhs: z.number().positive("Price per vote must be greater than zero").max(10000),
+  eventType: z
+    .enum(["beauty_pageant", "award_show", "talent_show", "campus_contest", "ticketed_event", "other"])
+    .default("beauty_pageant"),
+  categoryName: z.string().trim().max(100).optional(),
+  unitPriceGhs: z.number().positive("Price must be greater than zero").max(50000).default(1),
+  ticketTierName: z.string().trim().max(120).optional(),
+  ticketPriceGhs: z.number().positive("Ticket price must be greater than zero").max(50000).optional(),
   description: z.string().trim().max(2000).optional(),
   votingOpensAt: z.string().datetime({ offset: true }).nullable().optional().or(z.literal("")),
   votingClosesAt: z.string().datetime({ offset: true }).nullable().optional().or(z.literal("")),
@@ -54,6 +58,8 @@ export async function POST(req: NextRequest) {
     eventType,
     categoryName,
     unitPriceGhs,
+    ticketTierName,
+    ticketPriceGhs,
     description,
     votingOpensAt,
     votingClosesAt,
@@ -124,7 +130,35 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const catSlug = categoryName
+  if (eventType === "ticketed_event") {
+    const firstTierName = ticketTierName?.trim() || "Regular Ticket";
+    const firstTierPriceMinor = Math.round((ticketPriceGhs || unitPriceGhs || 50) * 100);
+    const { data: ticketTier, error: tierErr } = await admin
+      .from("event_ticket_tiers")
+      .insert({
+        event_id: event.id,
+        organization_id: organizationId,
+        name: firstTierName,
+        description: "Official event admission pass",
+        price_minor: firstTierPriceMinor,
+        currency: "GHS",
+        created_by: auth.user.id,
+      })
+      .select("id, name, price_minor")
+      .single();
+
+    if (tierErr) {
+      return NextResponse.json(
+        { error: "CREATE_TIER_FAILED", message: tierErr.message },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({ event, ticketTier }, { status: 201 });
+  }
+
+  const finalCatName = categoryName?.trim() || "Main Category";
+  const catSlug = finalCatName
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "") || "main";
@@ -134,7 +168,7 @@ export async function POST(req: NextRequest) {
     .insert({
       event_id: event.id,
       organization_id: organizationId,
-      name: categoryName,
+      name: finalCatName,
       slug: catSlug,
       sort_order: 0,
       results_state: "live",

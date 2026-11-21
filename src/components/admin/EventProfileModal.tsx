@@ -332,6 +332,7 @@ export function EventProfileModal({ event, onClose, onSaved }: EventProfileModal
                 onChange={(e) => setEventType(e.target.value)}
                 className="w-full px-3.5 py-2.5 rounded-xl bg-[#F6F7FC] border border-[#D9DBEA] text-sm text-[#0E1030]"
               >
+                <option value="ticketed_event">Ticket-Only Event (Movie Premiere / Show / Concert)</option>
                 <option value="beauty_pageant">Beauty Pageant</option>
                 <option value="award_show">Award Show</option>
                 <option value="talent_show">Talent Show</option>

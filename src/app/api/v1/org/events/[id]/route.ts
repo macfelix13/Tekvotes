@@ -12,7 +12,9 @@ const PatchEventSchema = z.object({
     .max(16)
     .regex(/^[A-Za-z0-9_-]+$/, "Event code can only contain letters, numbers, hyphens, or underscores")
     .optional(),
-  eventType: z.enum(["beauty_pageant", "award_show", "talent_show", "campus_contest", "other"]).optional(),
+  eventType: z
+    .enum(["beauty_pageant", "award_show", "talent_show", "campus_contest", "ticketed_event", "other"])
+    .optional(),
   description: z.string().trim().max(2000).optional().or(z.literal("")),
   venue: z.string().trim().max(200).optional().or(z.literal("")),
   votingOpensAt: z.string().datetime({ offset: true }).nullable().optional().or(z.literal("")),
