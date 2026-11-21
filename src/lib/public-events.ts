@@ -119,6 +119,91 @@ function service(): SupabaseClient {
 type OrgEmbed = { name: string } | { name: string }[] | null;
 const orgName = (o: OrgEmbed) => (Array.isArray(o) ? o[0]?.name : o?.name) ?? "Organiser";
 
+export interface PublicMarqueeItem {
+  id: string;
+  name: string;
+  subtitle: string;
+  badge: "Event" | "Sponsor" | "Partner";
+  logoUrl: string | null;
+  href?: string;
+}
+
+export async function listPublicMarqueeItems(events: PublicEventSummary[]): Promise<PublicMarqueeItem[]> {
+  await connection();
+  const db = anon();
+  const { data: sponsors } = await db
+    .from("sponsors")
+    .select("id, name, tier, logo_public_id, website_url")
+    .order("sort_order", { ascending: true })
+    .limit(12);
+
+  const eventItems: PublicMarqueeItem[] = events.map((e) => ({
+    id: `event-${e.id}`,
+    name: e.name,
+    subtitle: e.organizerName,
+    badge: "Event",
+    logoUrl: e.bannerUrl,
+    href: `/competitions/${e.slug}`,
+  }));
+
+  const sponsorItems: PublicMarqueeItem[] = (sponsors ?? []).map((s) => ({
+    id: `sponsor-${s.id as string}`,
+    name: String(s.name),
+    subtitle: `${String(s.tier || "Official").replace(/^\w/, (c) => c.toUpperCase())} Sponsor`,
+    badge: "Sponsor",
+    logoUrl: (s.logo_public_id as string | null) ?? null,
+    href: (s.website_url as string | null) || undefined,
+  }));
+
+  const partnerItems: PublicMarqueeItem[] = [
+    {
+      id: "partner-paystack",
+      name: "Paystack",
+      subtitle: "Payment Infrastructure",
+      badge: "Partner",
+      logoUrl: null,
+    },
+    {
+      id: "partner-mtn-momo",
+      name: "MTN MoMo",
+      subtitle: "Mobile Money Partner",
+      badge: "Partner",
+      logoUrl: null,
+    },
+    {
+      id: "partner-telecel-cash",
+      name: "Telecel Cash",
+      subtitle: "Mobile Money Partner",
+      badge: "Partner",
+      logoUrl: null,
+    },
+    {
+      id: "partner-at-money",
+      name: "AT Money",
+      subtitle: "Mobile Money Partner",
+      badge: "Partner",
+      logoUrl: null,
+    },
+    {
+      id: "partner-visa-mastercard",
+      name: "Visa & Mastercard",
+      subtitle: "Global Card Checkout",
+      badge: "Partner",
+      logoUrl: null,
+    },
+    {
+      id: "partner-frametek",
+      name: "FrameTek Ghana",
+      subtitle: "Technology Partner",
+      badge: "Partner",
+      logoUrl: null,
+      href: "https://frametekgh.com",
+    },
+  ];
+
+  return [...eventItems, ...sponsorItems, ...partnerItems];
+}
+
 export async function listPublicEvents(): Promise<PublicEventSummary[]> {
   await connection();
   const db = anon();

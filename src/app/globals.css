@@ -73,13 +73,33 @@ body {
   transform: translate3d(0, 0, 0);
 }
 
+@keyframes tvMarquee {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+  100% {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+.animate-marquee {
+  display: flex;
+  width: max-content;
+  animation: tvMarquee 36s linear infinite;
+}
+
+.animate-marquee:hover {
+  animation-play-state: paused;
+}
+
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
   }
 
   .animate-hero-in,
-  .reveal-on-scroll {
+  .reveal-on-scroll,
+  .animate-marquee {
     opacity: 1 !important;
     transform: none !important;
     animation: none !important;

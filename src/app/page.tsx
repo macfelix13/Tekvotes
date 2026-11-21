@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { Navbar } from "@/components/navigation/Navbar";
 import { HomeSearch } from "@/components/search/HomeSearch";
+import { LogoMarquee } from "@/components/home/LogoMarquee";
 import { Reveal } from "@/components/ui/Reveal";
-import { listPublicEvents, getPublicEvent } from "@/lib/public-events";
+import { listPublicEvents, getPublicEvent, listPublicMarqueeItems } from "@/lib/public-events";
 import {
   ArrowRight,
   Search,
@@ -24,8 +25,12 @@ const formatType = (eventType: string) => {
 
 export default async function HomePage() {
   const liveEvents = await listPublicEvents();
-  const featuredSummary = liveEvents.find((e) => e.votingOpen) ?? liveEvents[0] ?? null;
-  const featuredDetail = featuredSummary ? await getPublicEvent(featuredSummary.slug) : null;
+  const [featuredDetail, marqueeItems] = await Promise.all([
+    (liveEvents.find((e) => e.votingOpen) ?? liveEvents[0])
+      ? getPublicEvent((liveEvents.find((e) => e.votingOpen) ?? liveEvents[0])!.slug)
+      : Promise.resolve(null),
+    listPublicMarqueeItems(liveEvents),
+  ]);
   const featuredTop = (featuredDetail?.entries ?? []).slice(0, 2);
 
   return (
@@ -163,6 +168,9 @@ export default async function HomePage() {
 
         {/* Search Bar Overlay */}
         <HomeSearch />
+
+        {/* Events, Sponsors & Partners Marquee */}
+        <LogoMarquee items={marqueeItems} />
 
         {/* Voting Process: How to Vote for a Contestant (Screenshots 3 reference) */}
         <section className="py-20 bg-white">
