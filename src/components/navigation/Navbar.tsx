@@ -106,12 +106,20 @@ export function Navbar() {
             Events
           </Link>
           <Link
+            href="/tickets"
+            className={`hover:text-[#4B35E0] transition-colors ${
+              pathname.startsWith("/tickets") ? "font-semibold text-[#0E1030]" : ""
+            }`}
+          >
+            Tickets
+          </Link>
+          <Link
             href="/verify"
             className={`hover:text-[#4B35E0] transition-colors ${
               pathname.startsWith("/verify") ? "font-semibold text-[#0E1030]" : ""
             }`}
           >
-            Verify Vote
+            Verify Receipt
           </Link>
 
           {/* Unified Portals Dropdown (Judge, Organiser, Admin) */}
@@ -244,6 +252,17 @@ export function Navbar() {
               Events
             </Link>
             <Link
+              href="/tickets"
+              onClick={() => setMobileOpen(false)}
+              className={`block px-3 py-2.5 rounded-xl text-sm font-semibold ${
+                pathname.startsWith("/tickets")
+                  ? "bg-[#E8E5FD] text-[#4B35E0]"
+                  : "text-[#0E1030] hover:bg-[#F6F7FC]"
+              }`}
+            >
+              Tickets
+            </Link>
+            <Link
               href="/verify"
               onClick={() => setMobileOpen(false)}
               className={`block px-3 py-2.5 rounded-xl text-sm font-semibold ${
@@ -252,7 +271,7 @@ export function Navbar() {
                   : "text-[#0E1030] hover:bg-[#F6F7FC]"
               }`}
             >
-              Verify Vote
+              Verify Receipt
             </Link>
           </div>
 

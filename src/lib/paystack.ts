@@ -113,6 +113,9 @@ export type FulfillmentResult =
   | { found: true; status: string; credited: boolean; alreadyFinal: boolean; paystackStatus?: string };
 
 export async function fulfillPaystackOrderByReference(reference: string): Promise<FulfillmentResult> {
+  if (reference.toUpperCase().startsWith("TT-")) {
+    return fulfillTicketOrderByReference(reference);
+  }
   const supabase = createAdminClient();
   const { data: order, error: orderErr } = await supabase
     .from("voting_orders")
@@ -174,6 +177,64 @@ export async function fulfillPaystackOrderByReference(reference: string): Promis
     found: true,
     status: credited ? "credited" : "paid_uncredited",
     credited,
+    alreadyFinal: false,
+  };
+}
+
+export async function fulfillTicketOrderByReference(reference: string): Promise<FulfillmentResult> {
+  const supabase = createAdminClient();
+  const { data: order, error: orderErr } = await supabase
+    .from("ticket_orders")
+    .select("id, reference, status, total_amount_minor, currency")
+    .eq("reference", reference)
+    .maybeSingle();
+
+  if (orderErr) throw new Error(orderErr.message);
+  if (!order) return { found: false };
+
+  if (order.status === "paid") {
+    return {
+      found: true,
+      status: "paid",
+      credited: true,
+      alreadyFinal: true,
+    };
+  }
+
+  const verified = await verifyPaystackTransaction(order.reference);
+  if (verified.status !== "success") {
+    return {
+      found: true,
+      status: order.status,
+      credited: false,
+      alreadyFinal: false,
+      paystackStatus: verified.status,
+    };
+  }
+
+  if (
+    verified.currency.toUpperCase() !== String(order.currency).toUpperCase() ||
+    verified.amountMinor !== Number(order.total_amount_minor)
+  ) {
+    throw new Error("AMOUNT_OR_CURRENCY_MISMATCH");
+  }
+
+  const { data: ok, error: procErr } = await supabase.rpc("app_process_ticket_payment_success", {
+    p_ticket_order_id: order.id,
+    p_provider_txn_id: verified.transactionId,
+    p_provider_fee_minor: Math.max(0, Number(verified.feesMinor ?? 0)),
+    p_channel: verified.channel || "mobile_money",
+    p_raw_verification: verified.raw,
+  });
+
+  if (procErr) {
+    throw new Error(procErr.message);
+  }
+
+  return {
+    found: true,
+    status: ok ? "paid" : order.status,
+    credited: Boolean(ok),
     alreadyFinal: false,
   };
 }

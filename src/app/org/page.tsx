@@ -10,6 +10,7 @@ import {
   type OrgEventRow,
   type OrgSettlementRow,
 } from "./OrgPortalClient";
+import type { OrgTicketTierRow, OrgIssuedTicketRow } from "@/components/admin/OrgTicketingPanel";
 import { Building2 } from "lucide-react";
 
 export default async function OrganiserPortalPage({
@@ -91,7 +92,7 @@ export default async function OrganiserPortalPage({
       </div>
     );
   }
-  const [{ data: evRows }, { data: catRows }, { data: fundRows }, { data: ceRows }, { data: socialRows }, { data: settleReqRows }, { data: brandingRows }] =
+  const [{ data: evRows }, { data: catRows }, { data: fundRows }, { data: ceRows }, { data: socialRows }, { data: settleReqRows }, { data: brandingRows }, { data: tierRows }, { data: issuedTicketRows }] =
     await Promise.all([
       admin
         .from("events")
@@ -117,6 +118,18 @@ export default async function OrganiserPortalPage({
         .order("sort_order"),
       admin.rpc("app_list_settlement_requests", { p_org_id: activeOrg.id }),
       admin.from("branding_settings").select("event_id, banner_public_id").eq("organization_id", activeOrg.id),
+      admin
+        .from("event_ticket_tiers")
+        .select("id, event_id, name, description, price_minor, currency, capacity, sold_count, active")
+        .eq("organization_id", activeOrg.id)
+        .eq("active", true)
+        .order("created_at", { ascending: false }),
+      admin
+        .from("issued_tickets")
+        .select("id, ticket_code, holder_name, holder_phone_e164, event_id, tier_id, status, checked_in_at, created_at")
+        .eq("organization_id", activeOrg.id)
+        .order("created_at", { ascending: false })
+        .limit(100),
     ]);
 
   const bannerByEvent = new Map((brandingRows ?? []).map((b) => [b.event_id as string, (b.banner_public_id as string | null) ?? ""]));
@@ -242,6 +255,32 @@ export default async function OrganiserPortalPage({
     createdAt: sr.created_at,
   }));
 
+  const ticketTiers: OrgTicketTierRow[] = (tierRows ?? []).map((t) => ({
+    id: t.id as string,
+    eventId: t.event_id as string,
+    eventName: eventNameById.get(t.event_id as string) ?? "Event",
+    name: String(t.name),
+    description: String(t.description ?? ""),
+    priceMinor: Number(t.price_minor),
+    currency: String(t.currency ?? "GHS"),
+    capacity: t.capacity != null ? Number(t.capacity) : null,
+    soldCount: Number(t.sold_count ?? 0),
+    active: Boolean(t.active),
+  }));
+  const tierNameById = new Map(ticketTiers.map((t) => [t.id, t.name]));
+
+  const issuedTickets: OrgIssuedTicketRow[] = (issuedTicketRows ?? []).map((p) => ({
+    id: p.id as string,
+    ticketCode: String(p.ticket_code),
+    holderName: String(p.holder_name),
+    holderPhone: String(p.holder_phone_e164),
+    eventName: eventNameById.get(p.event_id as string) ?? "Event",
+    tierName: tierNameById.get(p.tier_id as string) ?? "Ticket",
+    status: String(p.status),
+    checkedInAt: (p.checked_in_at as string | null) ?? null,
+    createdAt: String(p.created_at),
+  }));
+
   return (
     <OrgPortalClient
       userEmail={user.email ?? ""}
@@ -251,6 +290,8 @@ export default async function OrganiserPortalPage({
       categories={categories}
       contestants={contestants}
       settlements={settlements}
+      ticketTiers={ticketTiers}
+      issuedTickets={issuedTickets}
       totals={totals}
     />
   );

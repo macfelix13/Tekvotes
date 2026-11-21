@@ -16,10 +16,16 @@ import {
 } from "@/components/admin/EventProfileModal";
 import { OrgJudgingPanel } from "@/components/admin/OrgJudgingPanel";
 import {
+  OrgTicketingPanel,
+  type OrgTicketTierRow,
+  type OrgIssuedTicketRow,
+} from "@/components/admin/OrgTicketingPanel";
+import {
   Trophy,
   Users,
   Wallet,
   Scale,
+  Ticket,
   Plus,
   Eye,
   Lock,
@@ -108,6 +114,8 @@ interface OrgPortalProps {
   categories: OrgCategoryRow[];
   contestants: OrgContestantRow[];
   settlements: OrgSettlementRow[];
+  ticketTiers?: OrgTicketTierRow[];
+  issuedTickets?: OrgIssuedTicketRow[];
   totals: {
     totalVotes: number;
     pendingEscrowMinor: number;
@@ -127,10 +135,12 @@ export function OrgPortalClient({
   categories,
   contestants,
   settlements,
+  ticketTiers = [],
+  issuedTickets = [],
   totals,
 }: OrgPortalProps) {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<"events" | "contestants" | "judging" | "funds">("events");
+  const [activeTab, setActiveTab] = useState<"events" | "contestants" | "ticketing" | "judging" | "funds">("events");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [notice, setNotice] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
 
@@ -534,6 +544,7 @@ export function OrgPortalClient({
               [
                 { id: "events", label: `Events & Visibility (${events.length})`, Icon: Trophy },
                 { id: "contestants", label: `Contestants & Profiles (${contestants.length})`, Icon: Users },
+                { id: "ticketing", label: `Ticketing & Check-In (${ticketTiers.length})`, Icon: Ticket },
                 { id: "judging", label: "Judging & Results", Icon: Scale },
                 { id: "funds", label: "Event Funds & Post-Close Payouts", Icon: Wallet },
               ] as const
@@ -921,6 +932,17 @@ export function OrgPortalClient({
                 </table>
               </div>
             </div>
+          )}
+
+          {activeTab === "ticketing" && (
+            <OrgTicketingPanel
+              organizationId={org.id}
+              defaultCurrency={org.defaultCurrency}
+              events={events.map((e) => ({ id: e.id, name: e.name, code: e.code }))}
+              tiers={ticketTiers}
+              issuedTickets={issuedTickets}
+              onNotice={setNotice}
+            />
           )}
 
           {activeTab === "judging" && <OrgJudgingPanel categories={categories} />}

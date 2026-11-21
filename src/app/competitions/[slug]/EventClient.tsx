@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Navbar } from "@/components/navigation/Navbar";
 import { Reveal } from "@/components/ui/Reveal";
 import { VotingDrawer, type Contestant } from "@/components/voting/VotingDrawer";
+import { TicketCheckoutDrawer } from "@/components/tickets/TicketCheckoutDrawer";
 import type { PublicEventDetail, PublicCategoryEntry, PublicEventGalleryPhoto } from "@/lib/public-events";
 import {
   Building2,
@@ -22,6 +23,7 @@ import {
   MapPin,
   ShieldCheck,
   X,
+  Ticket,
 } from "lucide-react";
 
 const initials = (name: string) =>
@@ -94,6 +96,7 @@ export function EventClient({ event, initialCode }: { event: PublicEventDetail; 
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const [galleryFilter, setGalleryFilter] = useState<"all" | "event" | "contestant">("all");
   const [lightboxPhoto, setLightboxPhoto] = useState<PublicEventGalleryPhoto | null>(null);
+  const [ticketDrawerOpen, setTicketDrawerOpen] = useState(false);
 
   const handleShareContestant = async (c: PublicCategoryEntry) => {
     const shareUrl = `${window.location.origin}/competitions/${event.slug}?code=${encodeURIComponent(c.code)}`;
@@ -207,6 +210,16 @@ export function EventClient({ event, initialCode }: { event: PublicEventDetail; 
                   <span className="flex items-center gap-1.5">
                     <Trophy className="w-4 h-4 text-[#F2A900]" /> From GHS {(minPrice / 100).toFixed(2)} / vote
                   </span>
+                ) : null}
+                {event.ticketTiers && event.ticketTiers.length > 0 ? (
+                  <button
+                    type="button"
+                    onClick={() => setTicketDrawerOpen(true)}
+                    className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-[#F2A900] text-[#0E1030] font-bold text-xs hover:bg-[#D99600] cursor-pointer shadow-sm"
+                  >
+                    <Ticket className="w-4 h-4" />
+                    <span>Buy Event Tickets</span>
+                  </button>
                 ) : null}
               </div>
             </div>
@@ -720,6 +733,15 @@ export function EventClient({ event, initialCode }: { event: PublicEventDetail; 
           onSuccess={() => setSelected(null)}
         />
       )}
+
+      {ticketDrawerOpen && event.ticketTiers && event.ticketTiers.length > 0 ? (
+        <TicketCheckoutDrawer
+          eventName={event.name}
+          venue={event.venue}
+          tiers={event.ticketTiers}
+          onClose={() => setTicketDrawerOpen(false)}
+        />
+      ) : null}
     </div>
   );
 }

@@ -60,12 +60,95 @@ export interface PublicEventGalleryPhoto {
   categoryName?: string;
 }
 
+export interface PublicTicketTier {
+  id: string;
+  eventId: string;
+  name: string;
+  description: string;
+  priceMinor: number;
+  currency: string;
+  capacity: number | null;
+  soldCount: number;
+  maxPerOrder: number;
+}
+
+export interface PublicTicketedEvent {
+  id: string;
+  slug: string;
+  name: string;
+  eventType: string;
+  organizerName: string;
+  venue: string | null;
+  opensAt: string | null;
+  closesAt: string | null;
+  bannerUrl: string | null;
+  tiers: PublicTicketTier[];
+}
+
+export async function listPublicTicketedEvents(): Promise<PublicTicketedEvent[]> {
+  await connection();
+  const db = anon();
+
+  const { data: events, error } = await db
+    .from("events")
+    .select("id, slug, name, event_type, venue, voting_opens_at, voting_closes_at, organizations(name)")
+    .order("created_at", { ascending: false });
+  if (error || !events?.length) return [];
+
+  const ids = events.map((e) => e.id);
+  const [{ data: tiers }, { data: brandings }] = await Promise.all([
+    db
+      .from("event_ticket_tiers")
+      .select("id, event_id, name, description, price_minor, currency, capacity, sold_count, max_per_order, sort_order")
+      .in("event_id", ids)
+      .eq("active", true)
+      .order("sort_order", { ascending: true })
+      .order("price_minor", { ascending: true }),
+    db.from("branding_settings").select("event_id, banner_public_id").in("event_id", ids),
+  ]);
+
+  const bannerByEvent = new Map(
+    (brandings ?? []).map((b) => [b.event_id as string, (b.banner_public_id as string | null) ?? null])
+  );
+  const tiersByEvent = new Map<string, PublicTicketTier[]>();
+  for (const t of tiers ?? []) {
+    const eid = t.event_id as string;
+    const list = tiersByEvent.get(eid) ?? [];
+    list.push({
+      id: t.id as string,
+      eventId: eid,
+      name: String(t.name),
+      description: String(t.description ?? ""),
+      priceMinor: Number(t.price_minor),
+      currency: String(t.currency ?? "GHS"),
+      capacity: t.capacity != null ? Number(t.capacity) : null,
+      soldCount: Number(t.sold_count ?? 0),
+      maxPerOrder: Number(t.max_per_order ?? 10),
+    });
+    tiersByEvent.set(eid, list);
+  }
+
+  return events.map((e) => ({
+    id: e.id as string,
+    slug: e.slug as string,
+    name: e.name as string,
+    eventType: e.event_type as string,
+    organizerName: orgName(e.organizations as OrgEmbed),
+    venue: (e.venue as string | null) ?? null,
+    opensAt: (e.voting_opens_at as string | null) ?? null,
+    closesAt: (e.voting_closes_at as string | null) ?? null,
+    bannerUrl: bannerByEvent.get(e.id as string) ?? null,
+    tiers: tiersByEvent.get(e.id as string) ?? [],
+  }));
+}
+
 export interface PublicEventDetail extends Omit<PublicEventSummary, "contestantsCount" | "minUnitPriceMinor"> {
   description: string | null;
   rulesText: string | null;
   venue: string | null;
   opensAt: string | null;
   galleryPhotos: PublicEventGalleryPhoto[];
+  ticketTiers: PublicTicketTier[];
   categories: {
     id: string;
     name: string;
@@ -256,7 +339,7 @@ export async function getPublicEvent(slug: string): Promise<PublicEventDetail | 
   if (error) throw new Error(`Failed to load event: ${error.message}`);
   if (!event) return null;
 
-  const [{ data: cats, error: catErr }, { data: catEntries, error: ceErr }, { data: branding }, { data: pkgRows }, { data: galleryRows }] =
+  const [{ data: cats, error: catErr }, { data: catEntries, error: ceErr }, { data: branding }, { data: pkgRows }, { data: galleryRows }, { data: tierRows }] =
     await Promise.all([
       db
         .from("event_categories")
@@ -285,6 +368,13 @@ export async function getPublicEvent(slug: string): Promise<PublicEventDetail | 
         .eq("event_id", event.id)
         .order("sort_order", { ascending: true })
         .order("created_at", { ascending: false }),
+      db
+        .from("event_ticket_tiers")
+        .select("id, event_id, name, description, price_minor, currency, capacity, sold_count, max_per_order, sort_order")
+        .eq("event_id", event.id)
+        .eq("active", true)
+        .order("sort_order", { ascending: true })
+        .order("price_minor", { ascending: true }),
     ]);
   if (catErr) throw new Error(`Failed to load categories: ${catErr.message}`);
   if (ceErr) throw new Error(`Failed to load entries: ${ceErr.message}`);
@@ -492,6 +582,18 @@ export async function getPublicEvent(slug: string): Promise<PublicEventDetail | 
   const expired = Boolean(closesAt && new Date(closesAt).getTime() <= nowMs);
   const effectiveStatus = expired && event.voting_status === "active" ? "closed" : (event.voting_status as string);
 
+  const ticketTiers: PublicTicketTier[] = (tierRows ?? []).map((t) => ({
+    id: t.id as string,
+    eventId: t.event_id as string,
+    name: String(t.name),
+    description: String(t.description ?? ""),
+    priceMinor: Number(t.price_minor),
+    currency: String(t.currency ?? "GHS"),
+    capacity: t.capacity != null ? Number(t.capacity) : null,
+    soldCount: Number(t.sold_count ?? 0),
+    maxPerOrder: Number(t.max_per_order ?? 10),
+  }));
+
   return {
     id: event.id,
     slug: event.slug,
@@ -511,6 +613,7 @@ export async function getPublicEvent(slug: string): Promise<PublicEventDetail | 
     closesAt,
     bannerUrl,
     galleryPhotos,
+    ticketTiers,
     categories,
     entries,
   };

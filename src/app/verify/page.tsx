@@ -14,6 +14,7 @@ import {
   Loader2,
   RefreshCw,
   ArrowLeft,
+  Ticket,
 } from "lucide-react";
 
 interface ApiReceipt {
@@ -38,31 +39,86 @@ interface ApiReceipt {
   auditHash: string | null;
 }
 
+interface ApiTicketPass {
+  id: string;
+  ticketCode: string;
+  holderName: string;
+  status: "valid" | "checked_in" | "cancelled";
+  checkedInAt: string | null;
+}
+
+interface ApiTicketReceipt {
+  orderId: string;
+  reference: string;
+  status: string;
+  buyerName: string;
+  eventName: string;
+  eventSlug: string;
+  venue: string | null;
+  tierName: string;
+  quantity: number;
+  unitPriceMinor: number;
+  baseAmountMinor: number;
+  surchargeMinor: number;
+  totalAmountMinor: number;
+  currency: string;
+  channel: string;
+  createdAt: string;
+  paidAt: string | null;
+  passes: ApiTicketPass[];
+}
+
 const fmtGhs = (minor: number, currency: string) => `${currency} ${(minor / 100).toFixed(2)}`;
 const fmtUtc = (iso: string | null) =>
   iso ? `${iso.replace("T", " ").slice(0, 19)} UTC` : "Pending";
 
-async function fetchReceiptByRef(ref: string): Promise<{ receipt: ApiReceipt | null; error: string }> {
+async function fetchAnyReceiptByRef(ref: string): Promise<{
+  receipt: ApiReceipt | null;
+  ticketReceipt: ApiTicketReceipt | null;
+  error: string;
+}> {
+  const cleaned = ref.trim().toUpperCase();
   try {
-    const res = await fetch(`/api/v1/voting/orders/${encodeURIComponent(ref)}`, {
+    if (cleaned.startsWith("TT-")) {
+      const res = await fetch(`/api/v1/tickets/orders/${encodeURIComponent(cleaned)}`, {
+        cache: "no-store",
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.ticketReceipt) {
+        return {
+          receipt: null,
+          ticketReceipt: null,
+          error: data?.message || "No ticket receipt found for that reference.",
+        };
+      }
+      return { receipt: null, ticketReceipt: data.ticketReceipt as ApiTicketReceipt, error: "" };
+    }
+
+    const res = await fetch(`/api/v1/voting/orders/${encodeURIComponent(cleaned)}`, {
       cache: "no-store",
     });
     const data = await res.json().catch(() => null);
     if (!res.ok || !data?.receipt) {
       return {
         receipt: null,
-        error: data?.message || "No voting receipt found for that reference.",
+        ticketReceipt: null,
+        error: data?.message || "No vote or ticket receipt found for that reference.",
       };
     }
-    return { receipt: data.receipt as ApiReceipt, error: "" };
+    return { receipt: data.receipt as ApiReceipt, ticketReceipt: null, error: "" };
   } catch {
-    return { receipt: null, error: "Unable to contact verification service. Please try again." };
+    return {
+      receipt: null,
+      ticketReceipt: null,
+      error: "Unable to contact verification service. Please try again.",
+    };
   }
 }
 
 function VerifyReceiptContent({ initialRef }: { initialRef: string }) {
   const [refInput, setRefInput] = useState(initialRef);
   const [receipt, setReceipt] = useState<ApiReceipt | null>(null);
+  const [ticketReceipt, setTicketReceipt] = useState<ApiTicketReceipt | null>(null);
   const [loading, setLoading] = useState(Boolean(initialRef));
   const [errorMsg, setErrorMsg] = useState("");
 
@@ -71,8 +127,9 @@ function VerifyReceiptContent({ initialRef }: { initialRef: string }) {
     if (!cleaned) return;
     setLoading(true);
     setErrorMsg("");
-    const result = await fetchReceiptByRef(cleaned);
+    const result = await fetchAnyReceiptByRef(cleaned);
     setReceipt(result.receipt);
+    setTicketReceipt(result.ticketReceipt);
     setErrorMsg(result.error);
     setLoading(false);
   }, []);
@@ -80,9 +137,10 @@ function VerifyReceiptContent({ initialRef }: { initialRef: string }) {
   useEffect(() => {
     if (!initialRef) return;
     let active = true;
-    void fetchReceiptByRef(initialRef).then((result) => {
+    void fetchAnyReceiptByRef(initialRef).then((result) => {
       if (!active) return;
       setReceipt(result.receipt);
+      setTicketReceipt(result.ticketReceipt);
       setErrorMsg(result.error);
       setLoading(false);
     });
@@ -100,13 +158,13 @@ function VerifyReceiptContent({ initialRef }: { initialRef: string }) {
     <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
       <div className="text-center space-y-2">
         <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#E8E5FD] text-[#4B35E0] text-xs font-bold uppercase tracking-wider">
-          <ShieldCheck className="w-4 h-4" /> Public Vote Audit Trail
+          <ShieldCheck className="w-4 h-4" /> Public Vote &amp; Ticket Verifier
         </div>
         <h1 className="font-heading font-extrabold text-3xl sm:text-4xl text-[#0E1030]">
-          Verify Your Vote Receipt
+          Verify Vote Receipt or Event Ticket
         </h1>
         <p className="text-sm text-[#5B5F85] max-w-xl mx-auto">
-          Enter your order reference (e.g. <code className="font-mono font-bold text-[#0E1030]">TV-261120-...</code>) to verify payment confirmation and inspect the vote ledger record.
+          Enter your vote reference (<code className="font-mono font-bold text-[#0E1030]">TV-...</code>) or ticket reference (<code className="font-mono font-bold text-[#0E1030]">TT-...</code>) to inspect payment confirmation and pass codes.
         </p>
       </div>
 
@@ -119,8 +177,8 @@ function VerifyReceiptContent({ initialRef }: { initialRef: string }) {
             type="text"
             value={refInput}
             onChange={(e) => setRefInput(e.target.value)}
-            placeholder="Enter order reference..."
-            aria-label="Order reference"
+            placeholder="Enter TV-... or TT-... reference..."
+            aria-label="Order or ticket reference"
             className="w-full pl-10 pr-4 py-3 rounded-xl bg-[#F6F7FC] border border-[#D9DBEA] font-mono text-sm text-[#0E1030] focus:outline-none focus:ring-2 focus:ring-[#4B35E0]"
           />
           <Search className="w-4 h-4 text-[#5B5F85] absolute left-3.5 top-3.5" />
@@ -130,7 +188,7 @@ function VerifyReceiptContent({ initialRef }: { initialRef: string }) {
           disabled={loading || !refInput.trim()}
           className="px-6 py-3 rounded-xl bg-[#4B35E0] text-white font-semibold text-sm hover:bg-[#3B28B8] shadow-md shadow-[#4B35E0]/20 disabled:opacity-50 cursor-pointer"
         >
-          {loading ? "Checking..." : "Verify Ledger Entry"}
+          {loading ? "Checking..." : "Verify Reference"}
         </button>
       </form>
 
@@ -146,14 +204,134 @@ function VerifyReceiptContent({ initialRef }: { initialRef: string }) {
       {!loading && errorMsg && (
         <div className="bg-white rounded-3xl border border-[#D13A3A]/30 p-8 text-center space-y-3 shadow-sm">
           <AlertTriangle className="w-8 h-8 text-[#D13A3A] mx-auto" />
-          <h2 className="font-heading font-bold text-lg text-[#0E1030]">Receipt Not Verified</h2>
+          <h2 className="font-heading font-bold text-lg text-[#0E1030]">Reference Not Verified</h2>
           <p className="text-sm text-[#5B5F85]">{errorMsg}</p>
         </div>
       )}
 
-      {!loading && !errorMsg && !receipt && (
+      {!loading && !errorMsg && !receipt && !ticketReceipt && (
         <div className="bg-white rounded-3xl border border-[#D9DBEA] p-8 text-center text-sm text-[#5B5F85]">
-          Paste your order reference above after completing Paystack checkout to inspect your ledger receipt.
+          Paste your vote (<code className="font-mono">TV-...</code>) or ticket (<code className="font-mono">TT-...</code>) reference above to inspect your verified receipt or digital ticket passes.
+        </div>
+      )}
+
+      {!loading && ticketReceipt && (
+        <div className="bg-white rounded-3xl border border-[#D9DBEA] shadow-xl overflow-hidden">
+          {ticketReceipt.status === "paid" ? (
+            <div className="bg-[#0F9D6B] text-white px-6 py-4 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2.5">
+                <Ticket className="w-5 h-5 shrink-0" />
+                <span className="font-heading font-bold text-sm">
+                  Official Verified Event E-Ticket · Paid &amp; Issued
+                </span>
+              </div>
+              <span className="font-mono text-xs bg-white/20 px-2.5 py-1 rounded-md font-bold">
+                {ticketReceipt.reference}
+              </span>
+            </div>
+          ) : (
+            <div className="bg-[#C77700] text-white px-6 py-4 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2.5">
+                <Clock className="w-5 h-5 shrink-0" />
+                <span className="font-heading font-bold text-sm">
+                  Ticket Payment Status: {ticketReceipt.status.toUpperCase()}
+                </span>
+              </div>
+              <span className="font-mono text-xs bg-white/20 px-2.5 py-1 rounded-md font-bold">
+                {ticketReceipt.reference}
+              </span>
+            </div>
+          )}
+
+          <div className="p-6 sm:p-8 space-y-6">
+            <div className="grid sm:grid-cols-2 gap-6">
+              <div className="space-y-1">
+                <span className="text-xs text-[#5B5F85]">Event &amp; Venue</span>
+                <p className="font-heading font-extrabold text-lg text-[#0E1030]">{ticketReceipt.eventName}</p>
+                {ticketReceipt.venue ? <p className="text-xs text-[#5B5F85]">{ticketReceipt.venue}</p> : null}
+              </div>
+
+              <div className="space-y-1">
+                <span className="text-xs text-[#5B5F85]">Ticket Holder</span>
+                <p className="font-heading font-bold text-base text-[#0E1030]">{ticketReceipt.buyerName}</p>
+                <p className="text-xs text-[#4B35E0] font-bold">
+                  {ticketReceipt.tierName} × {ticketReceipt.quantity}
+                </p>
+              </div>
+            </div>
+
+            {ticketReceipt.passes.length > 0 ? (
+              <div className="space-y-2.5">
+                <span className="text-xs font-bold uppercase text-[#4B35E0]">
+                  Digital Gate Pass Codes (Present at Venue Entrance)
+                </span>
+                <div className="grid sm:grid-cols-2 gap-3">
+                  {ticketReceipt.passes.map((p) => (
+                    <div
+                      key={p.id}
+                      className="p-4 rounded-2xl bg-[#0E1030] text-white border border-white/15 flex items-center justify-between"
+                    >
+                      <div>
+                        <span className="text-[10px] uppercase text-[#F2A900] font-bold block">
+                          {ticketReceipt.tierName}
+                        </span>
+                        <span className="font-mono font-extrabold text-sm text-white block mt-0.5">
+                          {p.ticketCode}
+                        </span>
+                        <span className="text-[11px] text-white/70 block">{p.holderName}</span>
+                      </div>
+                      <span
+                        className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase ${
+                          p.status === "valid"
+                            ? "bg-[#E6F8F0] text-[#0F9D6B]"
+                            : p.status === "checked_in"
+                            ? "bg-[#FDF3D6] text-[#C77700]"
+                            : "bg-[#D13A3A] text-white"
+                        }`}
+                      >
+                        {p.status === "valid" ? "VALID PASS" : p.status.replace(/_/g, " ")}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            <div className="pt-5 border-t border-[#D9DBEA] space-y-2 text-xs text-[#5B5F85]">
+              <div className="flex justify-between">
+                <span>Total Paid</span>
+                <span className="font-mono font-bold text-[#0E1030]">
+                  {fmtGhs(ticketReceipt.totalAmountMinor, ticketReceipt.currency)}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span>Payment Timestamp</span>
+                <span className="font-mono text-[#0E1030]">
+                  {fmtUtc(ticketReceipt.paidAt ?? ticketReceipt.createdAt)}
+                </span>
+              </div>
+            </div>
+
+            <div className="pt-4 border-t border-[#D9DBEA] flex flex-wrap items-center justify-between gap-3">
+              <Link
+                href="/tickets"
+                className="inline-flex items-center gap-1.5 text-xs font-bold text-[#4B35E0] hover:underline"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                Back to Event Tickets
+              </Link>
+              {ticketReceipt.status !== "paid" ? (
+                <button
+                  type="button"
+                  onClick={() => void lookupReference(ticketReceipt.reference)}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#F6F7FC] border border-[#D9DBEA] text-xs font-bold text-[#0E1030] hover:border-[#4B35E0] cursor-pointer"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  Re-check Status
+                </button>
+              ) : null}
+            </div>
+          </div>
         </div>
       )}
 
