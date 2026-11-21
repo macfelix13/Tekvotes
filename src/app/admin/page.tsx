@@ -68,11 +68,12 @@ export default async function SuperAdminPage() {
     { data: ceRows },
     { data: socialRows },
     { data: settleReqRows },
+    { data: brandingRows },
   ] = await Promise.all([
     admin.from("v_event_funds").select("*"),
     admin
       .from("events")
-      .select("id, slug, public_code, name, organization_id, approval_status, voting_status, currency, commission_bps, organizations(name)")
+      .select("id, slug, public_code, name, description, venue, event_type, organization_id, approval_status, voting_status, currency, commission_bps, organizations(name)")
       .order("created_at", { ascending: false }),
     admin.from("v_org_funds").select("*"),
     admin
@@ -97,7 +98,10 @@ export default async function SuperAdminPage() {
       .order("created_at", { ascending: false }),
     admin.from("contestant_social_links").select("contestant_id, platform, url").order("sort_order"),
     admin.rpc("app_list_settlement_requests", { p_org_id: null }),
+    admin.from("branding_settings").select("event_id, banner_public_id"),
   ]);
+
+  const bannerByEventId = new Map((brandingRows ?? []).map((b) => [b.event_id as string, (b.banner_public_id as string | null) ?? ""]));
 
   const fundByEventId = new Map((eventFundRows ?? []).map((f) => [f.event_id as string, f]));
 
@@ -141,6 +145,10 @@ export default async function SuperAdminPage() {
       slug: ev.slug,
       eventCode: ev.public_code,
       eventName: ev.name,
+      eventType: ev.event_type ?? "beauty_pageant",
+      description: ev.description ?? "",
+      venue: ev.venue ?? "",
+      bannerUrl: bannerByEventId.get(ev.id) ?? "",
       orgName,
       approvalStatus: ev.approval_status,
       votingStatus: ev.voting_status,

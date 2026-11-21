@@ -10,6 +10,10 @@ import {
   type EditableContestantProfile,
 } from "@/components/admin/ContestantProfileModal";
 import {
+  EventProfileModal,
+  type EditableEventProfile,
+} from "@/components/admin/EventProfileModal";
+import {
   ShieldCheck,
   Building2,
   Landmark,
@@ -39,6 +43,10 @@ export interface AdminEventFundRow {
   slug: string;
   eventCode: string;
   eventName: string;
+  eventType: string;
+  description: string;
+  venue: string;
+  bannerUrl: string;
   orgName: string;
   approvalStatus: string;
   votingStatus: string;
@@ -221,6 +229,7 @@ export function AdminConsoleClient({
   const [contestantEventFilter, setContestantEventFilter] = useState("all");
   const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [editingProfile, setEditingProfile] = useState<EditableContestantProfile | null>(null);
+  const [editingEvent, setEditingEvent] = useState<EditableEventProfile | null>(null);
 
   const pendingApps = applications.filter((a) => a.status === "pending");
   const eventsNeedingAttention = eventFunds.filter(
@@ -682,6 +691,24 @@ export function AdminConsoleClient({
                             </td>
                             <td className="py-3.5 px-3 text-right">
                               <div className="inline-flex items-center gap-1.5 justify-end">
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setEditingEvent({
+                                      eventId: ef.id,
+                                      organizationId: ef.organizationId,
+                                      name: ef.eventName,
+                                      code: ef.eventCode,
+                                      eventType: ef.eventType,
+                                      description: ef.description,
+                                      venue: ef.venue,
+                                      bannerUrl: ef.bannerUrl,
+                                    })
+                                  }
+                                  className="px-2.5 py-1 rounded-lg border border-[#D9DBEA] bg-white text-[#0E1030] font-bold hover:border-[#4B35E0] hover:text-[#4B35E0] inline-flex items-center gap-1 cursor-pointer"
+                                >
+                                  <Pencil className="w-3 h-3" /> Edit
+                                </button>
                                 {ef.approvalStatus !== "approved" ? (
                                   <button
                                     type="button"
@@ -1318,6 +1345,17 @@ export function AdminConsoleClient({
           onSaved={(msg) => {
             setProfileModalOpen(false);
             setEditingProfile(null);
+            setNotice({ kind: "ok", text: msg });
+            router.refresh();
+          }}
+        />
+      )}
+      {editingEvent && (
+        <EventProfileModal
+          event={editingEvent}
+          onClose={() => setEditingEvent(null)}
+          onSaved={(msg) => {
+            setEditingEvent(null);
             setNotice({ kind: "ok", text: msg });
             router.refresh();
           }}

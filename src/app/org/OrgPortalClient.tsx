@@ -10,6 +10,10 @@ import {
   ContestantProfileModal,
   type EditableContestantProfile,
 } from "@/components/admin/ContestantProfileModal";
+import {
+  EventProfileModal,
+  type EditableEventProfile,
+} from "@/components/admin/EventProfileModal";
 import { OrgJudgingPanel } from "@/components/admin/OrgJudgingPanel";
 import {
   Trophy,
@@ -41,6 +45,9 @@ export interface OrgEventRow {
   name: string;
   code: string;
   eventType: string;
+  description: string;
+  venue: string;
+  bannerUrl: string;
   approvalStatus: string;
   votingStatus: string;
   totalVotes: number;
@@ -134,6 +141,7 @@ export function OrgPortalClient({
   // Contestant profile modal state (create or edit)
   const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [editingProfile, setEditingProfile] = useState<EditableContestantProfile | null>(null);
+  const [editingEvent, setEditingEvent] = useState<EditableEventProfile | null>(null);
 
   // Add Category modal state
   const [showAddCategoryModal, setShowAddCategoryModal] = useState(false);
@@ -549,21 +557,41 @@ export function OrgPortalClient({
                         </div>
 
                         <div className="flex flex-col sm:items-end gap-2">
-                          {(ev.approvalStatus === "not_submitted" || ev.approvalStatus === "rejected") && (
+                          <div className="flex flex-wrap items-center gap-2">
                             <button
                               type="button"
-                              disabled={busyId === ev.id}
-                              onClick={() => void handleSubmitForApproval(ev.id)}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#4B35E0] text-white text-xs font-bold hover:bg-[#3B28B8] disabled:opacity-50 cursor-pointer"
+                              onClick={() =>
+                                setEditingEvent({
+                                  eventId: ev.id,
+                                  organizationId: ev.organizationId,
+                                  name: ev.name,
+                                  code: ev.code,
+                                  eventType: ev.eventType,
+                                  description: ev.description,
+                                  venue: ev.venue,
+                                  bannerUrl: ev.bannerUrl,
+                                })
+                              }
+                              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl border border-[#D9DBEA] bg-white text-xs font-bold text-[#0E1030] hover:border-[#4B35E0] hover:text-[#4B35E0] cursor-pointer"
                             >
-                              {busyId === ev.id ? (
-                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                              ) : (
-                                <Send className="w-3.5 h-3.5" />
-                              )}
-                              Submit for Approval
+                              <Pencil className="w-3 h-3" /> Edit Event
                             </button>
-                          )}
+                            {(ev.approvalStatus === "not_submitted" || ev.approvalStatus === "rejected") && (
+                              <button
+                                type="button"
+                                disabled={busyId === ev.id}
+                                onClick={() => void handleSubmitForApproval(ev.id)}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#4B35E0] text-white text-xs font-bold hover:bg-[#3B28B8] disabled:opacity-50 cursor-pointer"
+                              >
+                                {busyId === ev.id ? (
+                                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                ) : (
+                                  <Send className="w-3.5 h-3.5" />
+                                )}
+                                Submit for Approval
+                              </button>
+                            )}
+                          </div>
                           <Link
                             href={`/competitions/${ev.slug}`}
                             className="inline-flex items-center gap-1 text-xs font-bold text-[#4B35E0] hover:underline"
@@ -1199,6 +1227,17 @@ export function OrgPortalClient({
           onSaved={(msg) => {
             setProfileModalOpen(false);
             setEditingProfile(null);
+            setNotice({ kind: "ok", text: msg });
+            router.refresh();
+          }}
+        />
+      )}
+      {editingEvent && (
+        <EventProfileModal
+          event={editingEvent}
+          onClose={() => setEditingEvent(null)}
+          onSaved={(msg) => {
+            setEditingEvent(null);
             setNotice({ kind: "ok", text: msg });
             router.refresh();
           }}

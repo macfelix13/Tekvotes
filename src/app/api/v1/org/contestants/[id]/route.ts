@@ -14,6 +14,13 @@ const optionalUrl = z
 const PatchContestantSchema = z.object({
   organizationId: z.string().uuid("Invalid organization ID"),
   displayName: z.string().trim().min(2, "Contestant name is too short").max(120).optional(),
+  publicCode: z
+    .string()
+    .trim()
+    .min(2)
+    .max(20)
+    .regex(/^[A-Za-z0-9_-]+$/, "Short code can only contain letters, numbers, hyphens, or underscores")
+    .optional(),
   bio: z.string().trim().max(1000).optional().or(z.literal("")),
   gender: z.string().trim().max(40).optional().or(z.literal("")),
   photoUrl: z
@@ -50,6 +57,7 @@ export async function PATCH(
   const {
     organizationId,
     displayName,
+    publicCode,
     bio,
     gender,
     photoUrl,
@@ -97,12 +105,26 @@ export async function PATCH(
     }
   }
 
-  if (bio !== undefined) {
-    await admin
+  if (bio !== undefined || publicCode !== undefined) {
+    const entryUpdates: Record<string, unknown> = {};
+    if (bio !== undefined) entryUpdates.event_bio = bio.trim() || null;
+    if (publicCode !== undefined) entryUpdates.public_code = publicCode.toUpperCase();
+
+    const { error: entryErr } = await admin
       .from("contestant_entries")
-      .update({ event_bio: bio.trim() || null })
+      .update(entryUpdates)
       .eq("contestant_id", id)
       .eq("organization_id", organizationId);
+
+    if (entryErr) {
+      if (entryErr.code === "23505") {
+        return NextResponse.json(
+          { error: "DUPLICATE_SHORT_CODE", message: "That contestant short code is already in use." },
+          { status: 409 }
+        );
+      }
+      return NextResponse.json({ error: "ENTRY_UPDATE_FAILED", message: entryErr.message }, { status: 500 });
+    }
   }
 
   if (status !== undefined) {

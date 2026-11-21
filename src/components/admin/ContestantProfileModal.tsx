@@ -119,6 +119,7 @@ export function ContestantProfileModal({
           body: JSON.stringify({
             organizationId,
             displayName: displayName.trim(),
+            publicCode: publicCode.trim(),
             gender: gender.trim(),
             bio: bio.trim(),
             photoUrl: photoUrl.trim(),
@@ -298,44 +299,29 @@ export function ContestantProfileModal({
               />
             </div>
 
-            {isEdit ? (
-              <div>
-                <label className="block font-bold text-[#5B5F85] uppercase mb-1">Gender (Optional)</label>
-                <input
-                  type="text"
-                  value={gender}
-                  onChange={(e) => setGender(e.target.value)}
-                  placeholder="e.g. Female"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#F6F7FC] border border-[#D9DBEA] text-sm text-[#0E1030]"
-                />
-              </div>
-            ) : (
-              <div>
-                <label className="block font-bold text-[#5B5F85] uppercase mb-1">Short Code *</label>
-                <input
-                  type="text"
-                  required
-                  value={publicCode}
-                  onChange={(e) => setPublicCode(e.target.value)}
-                  placeholder="e.g. DPG26-07"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#F6F7FC] border border-[#D9DBEA] text-sm font-mono text-[#0E1030]"
-                />
-              </div>
-            )}
-          </div>
-
-          {!isEdit ? (
             <div>
-              <label className="block font-bold text-[#5B5F85] uppercase mb-1">Gender (Optional)</label>
+              <label className="block font-bold text-[#5B5F85] uppercase mb-1">Short Code *</label>
               <input
                 type="text"
-                value={gender}
-                onChange={(e) => setGender(e.target.value)}
-                placeholder="e.g. Female"
-                className="w-full px-3.5 py-2.5 rounded-xl bg-[#F6F7FC] border border-[#D9DBEA] text-sm text-[#0E1030]"
+                required
+                value={publicCode}
+                onChange={(e) => setPublicCode(e.target.value.toUpperCase())}
+                placeholder="e.g. DPG26-07"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-[#F6F7FC] border border-[#D9DBEA] text-sm font-mono text-[#0E1030]"
               />
             </div>
-          ) : null}
+          </div>
+
+          <div>
+            <label className="block font-bold text-[#5B5F85] uppercase mb-1">Gender (Optional)</label>
+            <input
+              type="text"
+              value={gender}
+              onChange={(e) => setGender(e.target.value)}
+              placeholder="e.g. Female"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-[#F6F7FC] border border-[#D9DBEA] text-sm text-[#0E1030]"
+            />
+          </div>
 
           <div>
             <label className="block font-bold text-[#5B5F85] uppercase mb-1">Profile Bio / Tagline</label>

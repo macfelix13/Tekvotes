@@ -86,11 +86,11 @@ export default async function OrganiserPortalPage() {
       </div>
     );
   }
-  const [{ data: evRows }, { data: catRows }, { data: fundRows }, { data: ceRows }, { data: socialRows }, { data: settleReqRows }] =
+  const [{ data: evRows }, { data: catRows }, { data: fundRows }, { data: ceRows }, { data: socialRows }, { data: settleReqRows }, { data: brandingRows }] =
     await Promise.all([
       admin
         .from("events")
-        .select("id, slug, public_code, name, event_type, approval_status, voting_status, currency")
+        .select("id, slug, public_code, name, description, venue, event_type, approval_status, voting_status, currency")
         .eq("organization_id", activeOrg.id)
         .order("created_at", { ascending: false }),
       admin
@@ -111,7 +111,10 @@ export default async function OrganiserPortalPage() {
         .eq("organization_id", activeOrg.id)
         .order("sort_order"),
       admin.rpc("app_list_settlement_requests", { p_org_id: activeOrg.id }),
+      admin.from("branding_settings").select("event_id, banner_public_id").eq("organization_id", activeOrg.id),
     ]);
+
+  const bannerByEvent = new Map((brandingRows ?? []).map((b) => [b.event_id as string, (b.banner_public_id as string | null) ?? ""]));
 
   const fundByEvent = new Map((fundRows ?? []).map((f) => [f.event_id as string, f]));
   const eventNameById = new Map((evRows ?? []).map((e) => [e.id as string, e.name as string]));
@@ -178,6 +181,9 @@ export default async function OrganiserPortalPage() {
       name: ev.name,
       code: ev.public_code,
       eventType: ev.event_type,
+      description: ev.description ?? "",
+      venue: ev.venue ?? "",
+      bannerUrl: bannerByEvent.get(ev.id) ?? "",
       approvalStatus: ev.approval_status,
       votingStatus: ev.voting_status,
       totalVotes: votesByEvent.get(ev.id) ?? 0,
